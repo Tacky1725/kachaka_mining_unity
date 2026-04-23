@@ -1,1 +1,7 @@
+# Visual Studio Code settings
+.config
+.vscode
+
+# docs
+*.docx
 *.md
