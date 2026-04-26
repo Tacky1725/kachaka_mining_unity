@@ -5,9 +5,13 @@ public class RobotMarkerController : MonoBehaviour
     [SerializeField] private float markerSize = 0.35f;
     [SerializeField] private Color markerColor = new Color(0.1f, 0.72f, 0.95f);
     [SerializeField] private string bodyRendererName = "Body";
+    [SerializeField] private float rotationOffsetDegrees = 0f;
+    [SerializeField] private float markerZPosition = -1f;
 
     private SpriteRenderer spriteRenderer;
     private bool usesPrefabRenderers;
+    private Vector3 lastLocalPosition;
+    private float lastHeadingDegrees;
 
     private void Awake()
     {
@@ -17,8 +21,16 @@ public class RobotMarkerController : MonoBehaviour
     public void SetPose(Vector3 localPosition, float headingDegrees)
     {
         EnsureRenderer();
-        transform.localPosition = new Vector3(localPosition.x, localPosition.y, -1f);
-        transform.localRotation = Quaternion.Euler(0f, 0f, headingDegrees);
+        lastLocalPosition = new Vector3(localPosition.x, localPosition.y, markerZPosition);
+        lastHeadingDegrees = headingDegrees;
+        transform.localPosition = lastLocalPosition;
+        transform.localRotation = Quaternion.Euler(0f, 0f, lastHeadingDegrees + rotationOffsetDegrees);
+    }
+
+    public void SetRotationOffset(float offsetDegrees)
+    {
+        rotationOffsetDegrees = offsetDegrees;
+        transform.localRotation = Quaternion.Euler(0f, 0f, lastHeadingDegrees + rotationOffsetDegrees);
     }
 
     public bool TryGetWorldBounds(out Bounds worldBounds)

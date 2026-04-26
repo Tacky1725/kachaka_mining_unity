@@ -61,18 +61,23 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Scripts\UI\PopupController.cs" />
+    <Compile Include="Assets\Scripts\Game\ScoreHistoryEntry.cs" />
     <Compile Include="Assets\Scripts\Integration\TransformExtension.cs" />
     <Compile Include="Assets\Scripts\UI\ScoreView.cs" />
     <Compile Include="Assets\Scripts\UI\GameStateView.cs" />
     <Compile Include="Assets\Scripts\Integration\MapSubscriber.cs" />
     <Compile Include="Assets\Scripts\Markers\RobotMarkerController.cs" />
     <Compile Include="Assets\Scripts\UI\UiBootstrapper.cs" />
+    <Compile Include="Assets\Scripts\UI\StartScreenView.cs" />
+    <Compile Include="Assets\Scripts\Integration\GameRosPublisher.cs" />
     <Compile Include="Assets\Scripts\Game\GameManager.cs" />
     <Compile Include="Assets\Scripts\Map\SpriteFactory.cs" />
+    <Compile Include="Assets\Scripts\UI\FinishScreenView.cs" />
     <Compile Include="Assets\Scripts\UI\TimerView.cs" />
     <Compile Include="Assets\Scripts\Markers\RobotBeaconController.cs" />
     <Compile Include="Assets\Scripts\Integration\DummyGameDataProvider.cs" />
     <Compile Include="Assets\Scripts\Markers\ArtifactMarkerController.cs" />
+    <Compile Include="Assets\Scripts\Game\ScoreHistoryRepository.cs" />
     <Compile Include="Assets\Scripts\Integration\RosGameDataProvider.cs" />
     <Compile Include="Assets\Scripts\Map\MapViewController.cs" />
     <Compile Include="Assets\Scripts\Integration\ConverterExtension.cs" />

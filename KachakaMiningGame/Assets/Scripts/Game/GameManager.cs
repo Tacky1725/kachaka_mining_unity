@@ -1,10 +1,19 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
+    // ゲーム進行は waiting / playing / finished の状態機械で管理する。
+    private enum GameSessionState
+    {
+        Waiting,
+        Playing,
+        Finished
+    }
+
     [Header("Game Settings")]
     [SerializeField] private float initialTimeSeconds = 90f;
-    [SerializeField] private bool autoStartTimer = true;
+    [SerializeField] private float excavationDistanceThresholdMeters = 0.3f;
 
     [Header("Scene References")]
     [SerializeField] private MapViewController mapView;
@@ -12,80 +21,241 @@ public class GameManager : MonoBehaviour
     [SerializeField] private TimerView timerView;
     [SerializeField] private GameStateView stateView;
     [SerializeField] private PopupController popupController;
+    [SerializeField] private StartScreenView startScreenView;
+    [SerializeField] private FinishScreenView finishScreenView;
+    [SerializeField] private AudioSource excavationAudioSource;
+    [SerializeField] private AudioClip excavationSuccessClip;
     [SerializeField] private DummyGameDataProvider dummyDataProvider;
     [SerializeField] private RosGameDataProvider rosDataProvider;
+    [SerializeField] private GameRosPublisher gameRosPublisher;
 
     private int score;
     private float timeRemaining;
     private bool timerRunning;
     private float elapsedTime;
+    private Vector2 currentRobotPosition;
+    private Vector2 currentArtifactPosition;
+    private bool artifactAvailable;
+    private int lastPublishedTimeSeconds = -1;
+    private GameSessionState currentState = GameSessionState.Waiting;
+    private ScoreHistoryRepository scoreHistoryRepository;
 
     private void Awake()
     {
         EnsureCamera();
+        BindSceneReferences();
         EnsureMap();
         EnsureViews();
         EnsureRosIntegration();
         EnsureAudioRoot();
+        EnsureRosPublisher();
+        scoreHistoryRepository = new ScoreHistoryRepository();
     }
 
     private void Start()
     {
-        ResetGameState();
+        ConfigureUiCallbacks();
+        EnterWaitingState();
     }
 
+    // タイマー進行、ロボット位置更新、採掘判定、残り時間のパブリッシュ
     private void Update()
     {
         elapsedTime += Time.deltaTime;
 
         if (timerRunning)
         {
+            // タイマーは playing 中だけ起動
             timeRemaining = Mathf.Max(0f, timeRemaining - Time.deltaTime);
-            timerView.UpdateTime(timeRemaining);
+            UpdateTimerDisplay(timeRemaining);
 
             if (timeRemaining <= 0f)
             {
-                timerRunning = false;
-                stateView.UpdateState("Finished");
+                FinishGame();
             }
         }
 
-        if (dummyDataProvider != null && (rosDataProvider == null || !rosDataProvider.HasLiveRobotPose))
+        bool appliedLiveRobotPose = false;
+        if (rosDataProvider != null && rosDataProvider.TryGetLiveRobotPose(out Vector2 liveRobotPosition, out float liveRobotHeading))
         {
+            // ROS から実データが来ている間はそちらを優先して使う
+            UpdateRobotPose(liveRobotPosition, liveRobotHeading);
+            appliedLiveRobotPose = true;
+        }
+
+        if (dummyDataProvider != null && !appliedLiveRobotPose)
+        {
+            // ROS 未接続時でも確認できるよう、ダミー移動へフォールバック
             Vector2 robotPosition = dummyDataProvider.GetRobotPosition(elapsedTime);
             float robotHeading = dummyDataProvider.GetRobotHeadingDegrees(elapsedTime);
+            UpdateRobotPose(robotPosition, robotHeading);
+        }
+
+        TryHandleExcavation();
+        PublishTimeRemainingIfChanged();
+    }
+
+    // waiting 状態から新しいゲームプレイを開始
+    public void StartGame()
+    {
+        score = 0;
+        timeRemaining = initialTimeSeconds;
+        timerRunning = true;
+        elapsedTime = 0f;
+        currentState = GameSessionState.Playing;
+        lastPublishedTimeSeconds = -1;
+
+        Vector2 artifactPosition = dummyDataProvider != null
+            ? dummyDataProvider.ResetArtifactSpawn()
+            : Vector2.zero;
+
+        // HUD を初期化し、最初の化石を配置して、オーバーレイ画面からプレイ状態へ切り替える
+        UpdateScoreDisplay(score);
+        UpdateTimerDisplay(timeRemaining);
+        UpdateStateDisplay("Playing");
+        UpdateArtifactState(artifactPosition, dummyDataProvider != null);
+        SetStartScreenVisible(false);
+        SetFinishScreenVisible(false);
+        PublishScore();
+        PublishTimeRemaining(forcePublish: true);
+        PublishPlayingStarted();
+    }
+
+    // スコア更新と、採掘成功時の軽い演出をまとめて処理
+    public void AddScore(int amount)
+    {
+        score += amount;
+        UpdateScoreDisplay(score);
+        if (popupController != null)
+        {
+            popupController.ShowScorePopup(amount);
+        }
+
+        PlayExcavationSuccessSound();
+        PublishScore();
+    }
+
+    // 採掘成功後に次の化石出現位置へ再配置
+    public void RespawnArtifact()
+    {
+        Vector2 artifactPosition = dummyDataProvider != null
+            ? dummyDataProvider.RespawnArtifact()
+            : Vector2.zero;
+
+        UpdateArtifactState(artifactPosition, dummyDataProvider != null);
+    }
+
+    // ロボット位置の更新
+    private void UpdateRobotPose(Vector2 robotPosition, float robotHeading)
+    {
+        currentRobotPosition = robotPosition;
+        if (mapView != null)
+        {
             mapView.UpdateRobot(robotPosition, robotHeading);
         }
     }
 
-    public void ResetGameState()
+    // 採掘成功判定
+    private void TryHandleExcavation()
     {
-        score = 0;
-        timeRemaining = initialTimeSeconds;
-        timerRunning = autoStartTimer;
-        elapsedTime = 0f;
+        if (currentState != GameSessionState.Playing || !timerRunning || !artifactAvailable)
+        {
+            return;
+        }
 
-        Vector2 artifactPosition = dummyDataProvider != null
-            ? dummyDataProvider.GetArtifactPosition()
-            : Vector2.zero;
+        float distanceToArtifact = Vector2.Distance(currentRobotPosition, currentArtifactPosition);
+        if (distanceToArtifact > excavationDistanceThresholdMeters)
+        {
+            return;
+        }
 
-        scoreView.UpdateScore(score);
-        timerView.UpdateTime(timeRemaining);
-        stateView.UpdateState(timerRunning ? "Playing" : "Ready");
-        mapView.UpdateArtifact(artifactPosition, true);
+        // 同じ化石で多重加点しないよう、成功時点でいったん非表示にしてからスコア加算と再配置
+        artifactAvailable = false;
+        mapView.UpdateArtifact(currentArtifactPosition, false);
+        AddScore(1);
+        RespawnArtifact();
     }
 
-    public void AddScore(int amount)
+    // 化石の内部状態と画面表示状態を同期
+    private void UpdateArtifactState(Vector2 artifactPosition, bool visible)
     {
-        score += amount;
-        scoreView.UpdateScore(score);
-        popupController.ShowScorePopup(amount);
+        currentArtifactPosition = artifactPosition;
+        artifactAvailable = visible;
+        if (mapView != null)
+        {
+            mapView.UpdateArtifact(artifactPosition, visible);
+        }
     }
 
+    // シーン配置済みオブジェクトを探し、無ければ実行時生成へフォールバック
+    private void BindSceneReferences()
+    {
+        if (mapView == null)
+        {
+            mapView = FindObjectOfType<MapViewController>();
+        }
+
+        if (scoreView == null)
+        {
+            scoreView = FindObjectOfType<ScoreView>();
+        }
+
+        if (timerView == null)
+        {
+            timerView = FindObjectOfType<TimerView>();
+        }
+
+        if (stateView == null)
+        {
+            stateView = FindObjectOfType<GameStateView>();
+        }
+
+        if (popupController == null)
+        {
+            popupController = FindObjectOfType<PopupController>();
+        }
+
+        if (startScreenView == null)
+        {
+            startScreenView = FindObjectOfType<StartScreenView>();
+        }
+
+        if (finishScreenView == null)
+        {
+            finishScreenView = FindObjectOfType<FinishScreenView>();
+        }
+
+        if (dummyDataProvider == null)
+        {
+            dummyDataProvider = GetComponent<DummyGameDataProvider>();
+        }
+
+        if (rosDataProvider == null)
+        {
+            rosDataProvider = FindObjectOfType<RosGameDataProvider>();
+        }
+
+        if (gameRosPublisher == null)
+        {
+            gameRosPublisher = FindObjectOfType<GameRosPublisher>();
+        }
+
+        if (excavationAudioSource == null)
+        {
+            GameObject audioRoot = GameObject.Find("AudioRoot");
+            if (audioRoot != null)
+            {
+                excavationAudioSource = audioRoot.GetComponent<AudioSource>();
+            }
+        }
+    }
+
+    // 地図表示用のカメラ設定
     private void EnsureCamera()
     {
         if (Camera.main != null)
         {
+            Camera.main.orthographic = true;
             return;
         }
 
@@ -99,6 +269,7 @@ public class GameManager : MonoBehaviour
         cameraObject.AddComponent<AudioListener>();
     }
 
+    // シーンに地図ルートが無い場合は作成
     private void EnsureMap()
     {
         if (mapView == null)
@@ -110,13 +281,16 @@ public class GameManager : MonoBehaviour
         mapView.Initialize();
     }
 
+    // HUD や開始・終了画面がが無い場合は作成
     private void EnsureViews()
     {
         UiBootstrapper.EnsureCanvas(
             out ScoreView createdScoreView,
             out TimerView createdTimerView,
             out GameStateView createdStateView,
-            out PopupController createdPopupController);
+            out PopupController createdPopupController,
+            out StartScreenView createdStartScreenView,
+            out FinishScreenView createdFinishScreenView);
 
         if (scoreView == null)
         {
@@ -138,9 +312,14 @@ public class GameManager : MonoBehaviour
             popupController = createdPopupController;
         }
 
-        if (dummyDataProvider == null)
+        if (startScreenView == null)
         {
-            dummyDataProvider = GetComponent<DummyGameDataProvider>();
+            startScreenView = createdStartScreenView;
+        }
+
+        if (finishScreenView == null)
+        {
+            finishScreenView = createdFinishScreenView;
         }
 
         if (dummyDataProvider == null)
@@ -149,6 +328,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    // 採掘成功 SE 用の AudioSource を利用可能な状態にする
     private void EnsureAudioRoot()
     {
         GameObject audioRoot = GameObject.Find("AudioRoot");
@@ -157,12 +337,27 @@ public class GameManager : MonoBehaviour
             audioRoot = new GameObject("AudioRoot");
         }
 
-        if (audioRoot.GetComponent<AudioSource>() == null)
+        AudioSource audioSource = audioRoot.GetComponent<AudioSource>();
+        if (audioSource == null)
         {
-            audioRoot.AddComponent<AudioSource>();
+            audioSource = audioRoot.AddComponent<AudioSource>();
+        }
+
+        audioSource.playOnAwake = false;
+        audioSource.loop = false;
+
+        if (excavationAudioSource == null)
+        {
+            excavationAudioSource = audioSource;
+        }
+
+        if (excavationSuccessClip != null && excavationAudioSource.clip != excavationSuccessClip)
+        {
+            excavationAudioSource.clip = excavationSuccessClip;
         }
     }
 
+    // ROS subscriber 群を確保しつつ、手動セットアップ無しでも動くように
     private void EnsureRosIntegration()
     {
         if (rosDataProvider == null)
@@ -196,5 +391,206 @@ public class GameManager : MonoBehaviour
         }
 
         rosDataProvider.Initialize(mapView);
+    }
+
+    // ROS publisher を確保
+    private void EnsureRosPublisher()
+    {
+        if (gameRosPublisher == null)
+        {
+            GameObject connectorObject = GameObject.Find("ROSConnector");
+            if (connectorObject == null)
+            {
+                connectorObject = new GameObject("ROSConnector");
+            }
+
+            gameRosPublisher = connectorObject.GetComponent<GameRosPublisher>();
+            if (gameRosPublisher == null)
+            {
+                gameRosPublisher = connectorObject.AddComponent<GameRosPublisher>();
+            }
+        }
+
+        gameRosPublisher.Initialize();
+    }
+
+    // UI ボタンと GameManager の状態遷移メソッドを接続
+    private void ConfigureUiCallbacks()
+    {
+        if (startScreenView != null)
+        {
+            startScreenView.Bind(StartGame);
+        }
+
+        if (finishScreenView != null)
+        {
+            finishScreenView.Bind(EnterWaitingState);
+        }
+    }
+
+    // ゲーム開始前の待機状態へ戻し、待機画面を表示
+    private void EnterWaitingState()
+    {
+        timerRunning = false;
+        elapsedTime = 0f;
+        score = 0;
+        timeRemaining = initialTimeSeconds;
+        currentState = GameSessionState.Waiting;
+        lastPublishedTimeSeconds = -1;
+
+        UpdateScoreDisplay(score);
+        UpdateTimerDisplay(timeRemaining);
+        UpdateStateDisplay("Waiting");
+        UpdateArtifactState(Vector2.zero, false);
+        SetFinishScreenVisible(false);
+        SetStartScreenVisible(true);
+        PublishWaitingState();
+        PublishScore();
+        PublishTimeRemaining(forcePublish: true);
+    }
+
+    // プレイ終了、スコア保存、終了画面表示
+    private void FinishGame()
+    {
+        if (currentState == GameSessionState.Finished)
+        {
+            return;
+        }
+
+        timerRunning = false;
+        currentState = GameSessionState.Finished;
+        UpdateStateDisplay("Finished");
+        UpdateArtifactState(currentArtifactPosition, false);
+
+        IReadOnlyList<ScoreHistoryEntry> scoreHistory = scoreHistoryRepository.AppendScoreAndLoadDescending(score);
+        if (finishScreenView != null)
+        {
+            finishScreenView.ShowResults(score, scoreHistory);
+        }
+
+        SetStartScreenVisible(false);
+        SetFinishScreenVisible(true);
+        PublishFinishedState();
+        PublishScore();
+        PublishTimeRemaining(forcePublish: true);
+    }
+
+    // Score 表示 UI があれば表示内容を更新
+    private void UpdateScoreDisplay(int latestScore)
+    {
+        if (scoreView != null)
+        {
+            scoreView.UpdateScore(latestScore);
+        }
+    }
+
+    // Time 表示 UI があれば表示内容を更新
+    private void UpdateTimerDisplay(float remainingSeconds)
+    {
+        if (timerView != null)
+        {
+            timerView.UpdateTime(remainingSeconds);
+        }
+    }
+
+    // 画面上の状態表示ラベルを更新
+    private void UpdateStateDisplay(string stateLabel)
+    {
+        if (stateView != null)
+        {
+            stateView.UpdateState(stateLabel);
+        }
+    }
+
+    // 開始画面の表示・非表示切り替え
+    private void SetStartScreenVisible(bool visible)
+    {
+        if (startScreenView != null)
+        {
+            startScreenView.SetVisible(visible);
+        }
+    }
+
+    // 終了画面の表示・非表示切り替え
+    private void SetFinishScreenVisible(bool visible)
+    {
+        if (finishScreenView != null)
+        {
+            finishScreenView.SetVisible(visible);
+        }
+    }
+
+    // waiting 状態をパブリッシュ
+    private void PublishWaitingState()
+    {
+        if (gameRosPublisher != null)
+        {
+            gameRosPublisher.PublishState("waiting");
+        }
+    }
+
+    // プレイ開始時に playing 状態と start トリガをパブリッシュ
+    private void PublishPlayingStarted()
+    {
+        if (gameRosPublisher == null)
+        {
+            return;
+        }
+
+        gameRosPublisher.PublishState("playing");
+        gameRosPublisher.PublishStart();
+    }
+
+    // タイマー終了時に finished 状態をパブリッシュ
+    private void PublishFinishedState()
+    {
+        if (gameRosPublisher != null)
+        {
+            gameRosPublisher.PublishState("finished");
+        }
+    }
+
+    // スコア更新時に最新値をパブリッシュ
+    private void PublishScore()
+    {
+        if (gameRosPublisher != null)
+        {
+            gameRosPublisher.PublishScore(score);
+        }
+    }
+
+    // 同じ秒数を毎フレームパブリッシュしないように
+    private void PublishTimeRemainingIfChanged()
+    {
+        PublishTimeRemaining(forcePublish: false);
+    }
+
+    // 残り時間パブリッシュ
+    private void PublishTimeRemaining(bool forcePublish)
+    {
+        if (gameRosPublisher == null)
+        {
+            return;
+        }
+
+        int currentTimeSeconds = Mathf.CeilToInt(timeRemaining);
+        if (!forcePublish && currentTimeSeconds == lastPublishedTimeSeconds)
+        {
+            return;
+        }
+
+        lastPublishedTimeSeconds = currentTimeSeconds;
+        gameRosPublisher.PublishTimeRemaining(currentTimeSeconds);
+    }
+
+    // 採掘成功音再生
+    private void PlayExcavationSuccessSound()
+    {
+        if (excavationAudioSource == null || excavationSuccessClip == null)
+        {
+            return;
+        }
+
+        excavationAudioSource.PlayOneShot(excavationSuccessClip);
     }
 }

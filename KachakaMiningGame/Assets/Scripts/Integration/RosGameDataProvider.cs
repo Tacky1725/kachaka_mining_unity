@@ -19,6 +19,19 @@ public class RosGameDataProvider : MonoBehaviour
         }
     }
 
+    public bool TryGetLiveRobotPose(out Vector2 position, out float headingDegrees)
+    {
+        if (!HasLiveRobotPose || robotPoseSubscriber == null || !robotPoseSubscriber.TryGetLatestPose(out position, out headingDegrees, out float receivedAt))
+        {
+            position = Vector2.zero;
+            headingDegrees = 0f;
+            return false;
+        }
+
+        lastRobotPoseAt = receivedAt;
+        return true;
+    }
+
     public void Initialize(MapViewController targetMapView)
     {
         mapView = targetMapView;

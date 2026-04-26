@@ -7,16 +7,32 @@ public class MapViewController : MonoBehaviour
     [Header("Map Size")]
     [SerializeField] private Vector2 defaultMapSizeMeters = new Vector2(4f, 3f);
 
+    [Header("Map Appearance")]
+    [SerializeField] private Color backgroundColor = new Color(0.12f, 0.18f, 0.16f);
+    [SerializeField] private Color freeCellColor = new Color(0.92f, 0.95f, 0.92f);
+    [SerializeField] private Color occupiedCellColor = new Color(0.08f, 0.09f, 0.1f);
+    [SerializeField] private Color unknownCellColor = new Color(0.45f, 0.48f, 0.47f);
+    [SerializeField] private bool flipMapHorizontally = false;
+    [SerializeField] private bool flipMapVertically = false;
+
     [Header("Camera Fit")]
     [SerializeField] private Camera mapCamera;
     [SerializeField] private float cameraPaddingUnits = 0.5f;
+    [SerializeField] [Range(0.6f, 1.2f)] private float cameraZoomScale = 0.9f;
     [SerializeField] private float cameraViewRotationDegrees = 0f;
     [SerializeField] private bool logMapWorldSize = true;
+
+    [Header("Grid Overlay")]
+    [SerializeField] private int verticalGridDivisions = 4;
+    [SerializeField] private int horizontalGridDivisions = 3;
+    [SerializeField] private float gridLineWidth = 0.025f;
+    [SerializeField] private Color gridLineColor = new Color(0.45f, 0.62f, 0.54f, 0.4f);
 
     [Header("Marker References")]
     [SerializeField] private RobotMarkerController robotMarker;
     [SerializeField] private ArtifactMarkerController artifactMarker;
     [SerializeField] private GameObject robotBeaconPrefab;
+    [SerializeField] private GameObject artifactMarkerPrefab;
     [SerializeField] private GameObject originMarkerPrefab;
 
     private Vector2 mapOriginMeters;
@@ -27,6 +43,8 @@ public class MapViewController : MonoBehaviour
     private Transform markerRoot;
     private Transform gridRoot;
     private bool initialized;
+    private Vector2Int lastGridDimensions;
+    private float lastGridResolution;
 
     public void Initialize()
     {
@@ -37,7 +55,7 @@ public class MapViewController : MonoBehaviour
 
         gameObject.name = "MapRoot";
         transform.position = Vector3.zero;
-        mapOriginMeters = -defaultMapSizeMeters * 0.5f;
+        mapOriginMeters = Vector2.zero;
         mapSizeMeters = defaultMapSizeMeters;
         displaySizeUnits = mapSizeMeters;
 
@@ -45,7 +63,7 @@ public class MapViewController : MonoBehaviour
         AdjustCameraToFitMap();
         markerRoot = CreateChild("MarkerRoot").transform;
         robotMarker = EnsureRobotMarker();
-        artifactMarker = EnsureMarker<ArtifactMarkerController>("ArtifactMarker");
+        artifactMarker = EnsureArtifactMarker();
 
         initialized = true;
     }
@@ -64,6 +82,8 @@ public class MapViewController : MonoBehaviour
         mapOriginMeters = new Vector2(convertedOrigin.x, convertedOrigin.y);
         mapSizeMeters = convertedMapSize.x > 0f && convertedMapSize.y > 0f ? convertedMapSize : defaultMapSizeMeters;
         displaySizeUnits = mapSizeMeters;
+        lastGridDimensions = new Vector2Int((int)grid.info.width, (int)grid.info.height);
+        lastGridResolution = grid.info.resolution;
 
         Texture2D texture = CreateOccupancyTexture(grid);
         mapBackgroundRenderer.sprite = Sprite.Create(
@@ -72,7 +92,7 @@ public class MapViewController : MonoBehaviour
             new Vector2(0.5f, 0.5f),
             texture.width / displaySizeUnits.x);
         mapBackgroundRenderer.sortingOrder = -10;
-        mapBackgroundRenderer.transform.localScale = Vector3.one;
+        UpdateMapBackgroundTransform();
         CreateGridLines();
         AdjustCameraToFitMap();
         LogMapWorldSize();
@@ -93,13 +113,7 @@ public class MapViewController : MonoBehaviour
 
     public Vector3 MapToLocalPosition(Vector2 mapPositionMeters)
     {
-        float x = Mathf.InverseLerp(mapOriginMeters.x, mapOriginMeters.x + mapSizeMeters.x, mapPositionMeters.x);
-        float y = Mathf.InverseLerp(mapOriginMeters.y, mapOriginMeters.y + mapSizeMeters.y, mapPositionMeters.y);
-
-        return new Vector3(
-            Mathf.Lerp(-displaySizeUnits.x * 0.5f, displaySizeUnits.x * 0.5f, x),
-            Mathf.Lerp(-displaySizeUnits.y * 0.5f, displaySizeUnits.y * 0.5f, y),
-            0f);
+        return new Vector3(mapPositionMeters.x, mapPositionMeters.y, 0f);
     }
 
     private void CreateMapBackground()
@@ -111,9 +125,9 @@ public class MapViewController : MonoBehaviour
             mapBackgroundRenderer = background.AddComponent<SpriteRenderer>();
         }
 
-        mapBackgroundRenderer.sprite = SpriteFactory.CreateSolidSprite("MapBackgroundSprite", new Color(0.12f, 0.18f, 0.16f));
+        mapBackgroundRenderer.sprite = SpriteFactory.CreateSolidSprite("MapBackgroundSprite", backgroundColor);
         mapBackgroundRenderer.sortingOrder = -10;
-        background.transform.localScale = new Vector3(displaySizeUnits.x, displaySizeUnits.y, 1f);
+        UpdateMapBackgroundTransform();
 
         CreateGridLines();
     }
@@ -125,26 +139,21 @@ public class MapViewController : MonoBehaviour
         Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
         Color[] colors = new Color[width * height];
 
-        for (int i = 0; i < colors.Length; i++)
+        for (int y = 0; y < height; y++)
         {
-            sbyte value = i < grid.data.Length ? grid.data[i] : (sbyte)-1;
-
-            if (value == 0)
+            for (int x = 0; x < width; x++)
             {
-                colors[i] = new Color(0.92f, 0.95f, 0.92f);
-            }
-            else if (value >= 100)
-            {
-                colors[i] = new Color(0.08f, 0.09f, 0.1f);
-            }
-            else
-            {
-                colors[i] = new Color(0.45f, 0.48f, 0.47f);
+                int sourceX = flipMapHorizontally ? width - 1 - x : x;
+                int sourceY = flipMapVertically ? height - 1 - y : y;
+                int sourceIndex = sourceY * width + sourceX;
+                sbyte value = sourceIndex < grid.data.Length ? grid.data[sourceIndex] : (sbyte)-1;
+                colors[y * width + x] = GetCellColor(value);
             }
         }
 
         texture.SetPixels(colors);
         texture.filterMode = FilterMode.Point;
+        texture.wrapMode = TextureWrapMode.Clamp;
         texture.Apply();
         return texture;
     }
@@ -156,18 +165,23 @@ public class MapViewController : MonoBehaviour
 
         Shader spriteShader = Shader.Find("Sprites/Default");
         Material lineMaterial = spriteShader != null ? new Material(spriteShader) : null;
-        Color lineColor = new Color(0.45f, 0.62f, 0.54f, 0.4f);
+        int safeVerticalDivisions = Mathf.Max(1, verticalGridDivisions);
+        int safeHorizontalDivisions = Mathf.Max(1, horizontalGridDivisions);
+        float minX = mapOriginMeters.x;
+        float maxX = mapOriginMeters.x + mapSizeMeters.x;
+        float minY = mapOriginMeters.y;
+        float maxY = mapOriginMeters.y + mapSizeMeters.y;
 
-        for (int i = 1; i < 4; i++)
+        for (int i = 1; i < safeVerticalDivisions; i++)
         {
-            float x = Mathf.Lerp(-displaySizeUnits.x * 0.5f, displaySizeUnits.x * 0.5f, i / 4f);
-            CreateLine($"GridVertical{i}", new Vector3(x, -displaySizeUnits.y * 0.5f, -0.1f), new Vector3(x, displaySizeUnits.y * 0.5f, -0.1f), lineMaterial, lineColor);
+            float x = Mathf.Lerp(minX, maxX, i / (float)safeVerticalDivisions);
+            CreateLine($"GridVertical{i}", new Vector3(x, minY, -0.1f), new Vector3(x, maxY, -0.1f), lineMaterial, gridLineColor);
         }
 
-        for (int i = 1; i < 3; i++)
+        for (int i = 1; i < safeHorizontalDivisions; i++)
         {
-            float y = Mathf.Lerp(-displaySizeUnits.y * 0.5f, displaySizeUnits.y * 0.5f, i / 3f);
-            CreateLine($"GridHorizontal{i}", new Vector3(-displaySizeUnits.x * 0.5f, y, -0.1f), new Vector3(displaySizeUnits.x * 0.5f, y, -0.1f), lineMaterial, lineColor);
+            float y = Mathf.Lerp(minY, maxY, i / (float)safeHorizontalDivisions);
+            CreateLine($"GridHorizontal{i}", new Vector3(minX, y, -0.1f), new Vector3(maxX, y, -0.1f), lineMaterial, gridLineColor);
         }
     }
 
@@ -186,8 +200,8 @@ public class MapViewController : MonoBehaviour
         line.useWorldSpace = false;
         line.SetPosition(0, start);
         line.SetPosition(1, end);
-        line.startWidth = 0.025f;
-        line.endWidth = 0.025f;
+        line.startWidth = gridLineWidth;
+        line.endWidth = gridLineWidth;
         if (material != null)
         {
             line.material = material;
@@ -229,6 +243,28 @@ public class MapViewController : MonoBehaviour
         return controller != null ? controller : markerObject.AddComponent<RobotMarkerController>();
     }
 
+    private ArtifactMarkerController EnsureArtifactMarker()
+    {
+        Transform existing = markerRoot.Find("ArtifactMarker");
+        if (artifactMarkerPrefab == null && existing != null)
+        {
+            ArtifactMarkerController existingController = existing.GetComponent<ArtifactMarkerController>();
+            return existingController != null ? existingController : existing.gameObject.AddComponent<ArtifactMarkerController>();
+        }
+
+        if (artifactMarkerPrefab != null && existing != null)
+        {
+            existing.gameObject.SetActive(false);
+        }
+
+        GameObject markerObject = artifactMarkerPrefab != null ? Instantiate(artifactMarkerPrefab, markerRoot) : new GameObject("ArtifactMarker");
+        markerObject.name = "ArtifactMarker";
+        markerObject.transform.SetParent(markerRoot, false);
+
+        ArtifactMarkerController controller = markerObject.GetComponent<ArtifactMarkerController>();
+        return controller != null ? controller : markerObject.AddComponent<ArtifactMarkerController>();
+    }
+
     private void UpdateOriginMarker(OccupancyGridMsg grid)
     {
         if (originMarkerPrefab == null)
@@ -243,11 +279,8 @@ public class MapViewController : MonoBehaviour
             originMarkerInstance = markerObject.transform;
         }
 
-        Vector3 originPosition = grid.info.origin.position.rosMsg2Unity();
-        Quaternion originRotation = grid.info.origin.orientation.rosMsg2Unity().Ros2Unity();
-        Vector3 markerPosition = MapToLocalPosition(new Vector2(originPosition.x, originPosition.y));
-        originMarkerInstance.localPosition = new Vector3(markerPosition.x, markerPosition.y, -0.9f);
-        originMarkerInstance.localRotation = originRotation;
+        originMarkerInstance.localPosition = new Vector3(0f, 0f, -0.9f);
+        originMarkerInstance.localRotation = Quaternion.identity;
     }
 
     private void AdjustCameraToFitMap()
@@ -266,8 +299,10 @@ public class MapViewController : MonoBehaviour
         float aspect = mapCamera.aspect > 0f ? mapCamera.aspect : 16f / 9f;
         float paddedWidth = displaySizeUnits.x + cameraPaddingUnits * 2f;
         float paddedHeight = displaySizeUnits.y + cameraPaddingUnits * 2f;
-        mapCamera.orthographicSize = Mathf.Max(paddedHeight * 0.5f, paddedWidth * 0.5f / aspect);
-        mapCamera.transform.position = new Vector3(transform.position.x, transform.position.y, mapCamera.transform.position.z);
+        float fittedSize = Mathf.Max(paddedHeight * 0.5f, paddedWidth * 0.5f / aspect);
+        mapCamera.orthographicSize = Mathf.Max(0.01f, fittedSize * cameraZoomScale);
+        Vector2 mapCenter = mapOriginMeters + mapSizeMeters * 0.5f;
+        mapCamera.transform.position = new Vector3(mapCenter.x, mapCenter.y, mapCamera.transform.position.z);
         mapCamera.transform.rotation = Quaternion.Euler(0f, 0f, cameraViewRotationDegrees);
     }
 
@@ -293,6 +328,7 @@ public class MapViewController : MonoBehaviour
 
         Debug.Log(
             $"[MapViewController] Map size - ROS meters: {mapSizeMeters.x:F3} x {mapSizeMeters.y:F3}, " +
+            $"grid: {lastGridDimensions.x} x {lastGridDimensions.y} @ {lastGridResolution:F3}m, " +
             $"Unity display units: {displaySizeUnits.x:F3} x {displaySizeUnits.y:F3}, " +
             $"world bounds: {bounds.size.x:F3} x {bounds.size.y:F3}, " +
             $"transform lossyScale: {mapBackgroundRenderer.transform.lossyScale.x:F3} x {mapBackgroundRenderer.transform.lossyScale.y:F3}, " +
@@ -318,6 +354,42 @@ public class MapViewController : MonoBehaviour
         for (int i = parent.childCount - 1; i >= 0; i--)
         {
             Destroy(parent.GetChild(i).gameObject);
+        }
+    }
+
+    private Color GetCellColor(sbyte occupancyValue)
+    {
+        if (occupancyValue == 0)
+        {
+            return freeCellColor;
+        }
+
+        if (occupancyValue >= 100)
+        {
+            return occupiedCellColor;
+        }
+
+        return unknownCellColor;
+    }
+
+    private void UpdateMapBackgroundTransform()
+    {
+        if (mapBackgroundRenderer == null)
+        {
+            return;
+        }
+
+        Vector2 mapCenter = mapOriginMeters + mapSizeMeters * 0.5f;
+        mapBackgroundRenderer.transform.localPosition = new Vector3(mapCenter.x, mapCenter.y, 0f);
+        mapBackgroundRenderer.transform.localRotation = Quaternion.identity;
+
+        if (mapBackgroundRenderer.sprite != null && mapBackgroundRenderer.sprite.texture != null)
+        {
+            mapBackgroundRenderer.transform.localScale = Vector3.one;
+        }
+        else
+        {
+            mapBackgroundRenderer.transform.localScale = new Vector3(displaySizeUnits.x, displaySizeUnits.y, 1f);
         }
     }
 }

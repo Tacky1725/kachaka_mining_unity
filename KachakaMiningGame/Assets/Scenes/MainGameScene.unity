@@ -167,15 +167,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3d9a2824f64f4d1d9d5cc4155c5f2d11, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  initialTimeSeconds: 90
-  autoStartTimer: 1
+  initialTimeSeconds: 30
+  excavationDistanceThresholdMeters: 0.3
   mapView: {fileID: 300002}
   scoreView: {fileID: 0}
   timerView: {fileID: 0}
   stateView: {fileID: 0}
   popupController: {fileID: 0}
+  startScreenView: {fileID: 0}
+  finishScreenView: {fileID: 0}
+  excavationAudioSource: {fileID: 0}
+  excavationSuccessClip: {fileID: 8300000, guid: 0b5de865586844050b285d4a3fd6b033, type: 3}
   dummyDataProvider: {fileID: 100003}
-  rosDataProvider: {fileID: 0}
+  rosDataProvider: {fileID: 600004}
+  gameRosPublisher: {fileID: 0}
 --- !u!114 &100003
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -188,7 +193,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e1dd4536d21448c7adce9891eabfce46, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  artifactPosition: {x: 1.2, y: 0.7}
+  artifactSpawnCandidates:
+  - {x: 2, y: 0}
+  - {x: 1, y: 2}
+  - {x: 3, y: 1}
+  - {x: 2, y: 3}
+  avoidImmediateArtifactRespawnRepeat: 1
   robotPathCenter: {x: 0, y: 0}
   robotPathRadius: {x: 1.1, y: 0.7}
   robotPathSpeed: 0.6
@@ -259,7 +269,7 @@ Camera:
   near clip plane: 0.3
   far clip plane: 1000
   field of view: 60
-  orthographic: 0
+  orthographic: 1
   orthographic size: 5
   m_Depth: 0
   m_CullingMask:
@@ -315,7 +325,8 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 310001}
-  - {fileID: 330001}
+  - {fileID: 487083698}
+  - {fileID: 1611227064}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &300002
@@ -331,13 +342,25 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   defaultMapSizeMeters: {x: 4, y: 3}
-  mapCamera: {fileID: 0}
+  backgroundColor: {r: 0.12, g: 0.18, b: 0.16, a: 1}
+  freeCellColor: {r: 0.92, g: 0.95, b: 0.92, a: 1}
+  occupiedCellColor: {r: 0.08, g: 0.09, b: 0.1, a: 1}
+  unknownCellColor: {r: 0.45, g: 0.48, b: 0.47, a: 1}
+  flipMapHorizontally: 0
+  flipMapVertically: 0
+  mapCamera: {fileID: 200002}
   cameraPaddingUnits: 0.1
+  cameraZoomScale: 0.8
   cameraViewRotationDegrees: 270
   logMapWorldSize: 0
+  verticalGridDivisions: 4
+  horizontalGridDivisions: 3
+  gridLineWidth: 0.025
+  gridLineColor: {r: 0.45, g: 0.62, b: 0.54, a: 0.4}
   robotMarker: {fileID: 0}
   artifactMarker: {fileID: 0}
   robotBeaconPrefab: {fileID: 2726253987078505584, guid: 55ed5067f0ee4fae986cb9214d3091c6, type: 3}
+  artifactMarkerPrefab: {fileID: 6481349942245988202, guid: dbdc2648619b0414281274f7a3c61c89, type: 3}
   originMarkerPrefab: {fileID: 5805676892767068435, guid: 51ebc55a680600b4f91b451244a9ea14, type: 3}
 --- !u!1 &310000
 GameObject:
@@ -362,37 +385,6 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 310000}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 300001}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &330000
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 330001}
-  m_Layer: 0
-  m_Name: ArtifactMarker
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &330001
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 330000}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -635,6 +627,143 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &600000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 600001}
+  - component: {fileID: 600002}
+  - component: {fileID: 600003}
+  - component: {fileID: 600004}
+  m_Layer: 0
+  m_Name: ROSConnector
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &600001
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 600000}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &600002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 600000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6cd5a38f6602464494ad08a437876285, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  topicName: /original_map_ros2
+--- !u!114 &600003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 600000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2dc7e363305d4dc9985575e10c9ac928, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  topicName: /unity/robot_pose_map
+--- !u!114 &600004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 600000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d121429cc4464503a23480a5f40f2a90, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mapSubscriber: {fileID: 600002}
+  robotPoseSubscriber: {fileID: 600003}
+  messageTimeoutSeconds: 2
+--- !u!1 &487083697
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 487083698}
+  m_Layer: 0
+  m_Name: MarkerRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &487083698
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 487083697}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 300001}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1611227063
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1611227064}
+  m_Layer: 0
+  m_Name: GridRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1611227064
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1611227063}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 300001}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -644,3 +773,4 @@ SceneRoots:
   - {fileID: 300001}
   - {fileID: 500001}
   - {fileID: 400001}
+  - {fileID: 600001}

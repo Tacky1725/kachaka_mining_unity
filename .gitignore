@@ -3,5 +3,6 @@
 .vscode
 
 # docs
+Docs/
 *.docx
 *.md
