@@ -344,10 +344,13 @@ MonoBehaviour:
   defaultMapSizeMeters: {x: 4, y: 3}
   backgroundColor: {r: 0.12, g: 0.18, b: 0.16, a: 1}
   freeCellColor: {r: 0.92, g: 0.95, b: 0.92, a: 1}
-  occupiedCellColor: {r: 0.08, g: 0.09, b: 0.1, a: 1}
-  unknownCellColor: {r: 0.45, g: 0.48, b: 0.47, a: 1}
+  occupiedCellColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
+  unknownCellColor: {r: 0, g: 0, b: 0, a: 0.78431374}
   flipMapHorizontally: 0
   flipMapVertically: 0
+  freeCellGroundMaterial: {fileID: 2100000, guid: c6984564d0c2aa0409ef60f972ad6d52, type: 2}
+  freeCellTextureTileSizeMeters: {x: 3, y: 3}
+  freeCellGroundSortingOrder: -20
   mapCamera: {fileID: 200002}
   cameraPaddingUnits: 0.1
   cameraZoomScale: 0.7
@@ -358,10 +361,12 @@ MonoBehaviour:
   gridLineWidth: 0.025
   gridLineColor: {r: 0.45, g: 0.62, b: 0.54, a: 0.4}
   robotMarker: {fileID: 0}
+  radarSweep: {fileID: 0}
   artifactMarker: {fileID: 0}
   robotBeaconPrefab: {fileID: 2726253987078505584, guid: 55ed5067f0ee4fae986cb9214d3091c6, type: 3}
   artifactMarkerPrefab: {fileID: 6481349942245988202, guid: dbdc2648619b0414281274f7a3c61c89, type: 3}
   originMarkerPrefab: {fileID: 5805676892767068435, guid: 51ebc55a680600b4f91b451244a9ea14, type: 3}
+  limitArtifactVisibilityToRadar: 1
 --- !u!1 &310000
 GameObject:
   m_ObjectHideFlags: 0

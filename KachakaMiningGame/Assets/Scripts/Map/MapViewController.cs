@@ -15,6 +15,11 @@ public class MapViewController : MonoBehaviour
     [SerializeField] private bool flipMapHorizontally = false;
     [SerializeField] private bool flipMapVertically = false;
 
+    [Header("Free Cell Ground")]
+    [SerializeField] private Material freeCellGroundMaterial;
+    [SerializeField] private Vector2 freeCellTextureTileSizeMeters = new Vector2(0.01f, 0.01f);
+    [SerializeField] private int freeCellGroundSortingOrder = -20;
+
     [Header("Camera Fit")]
     [SerializeField] private Camera mapCamera;
     [SerializeField] private float cameraPaddingUnits = 0.5f;
@@ -42,6 +47,9 @@ public class MapViewController : MonoBehaviour
     private Vector2 mapOriginMeters;
     private Vector2 mapSizeMeters;
     private Vector2 displaySizeUnits;
+    private MeshRenderer freeCellGroundRenderer;
+    private MeshFilter freeCellGroundMeshFilter;
+    private Material freeCellGroundMaterialInstance;
     private SpriteRenderer mapBackgroundRenderer;
     private Transform originMarkerInstance;
     private Transform markerRoot;
@@ -51,6 +59,16 @@ public class MapViewController : MonoBehaviour
     private bool artifactExists;
     private Vector2Int lastGridDimensions;
     private float lastGridResolution;
+
+    private void OnValidate()
+    {
+        if (!Application.isPlaying)
+        {
+            return;
+        }
+
+        UpdateFreeCellGroundTransform();
+    }
 
     public void Initialize()
     {
@@ -65,6 +83,7 @@ public class MapViewController : MonoBehaviour
         mapSizeMeters = defaultMapSizeMeters;
         displaySizeUnits = mapSizeMeters;
 
+        CreateFreeCellGround();
         CreateMapBackground();
         AdjustCameraToFitMap();
         markerRoot = CreateChild("MarkerRoot").transform;
@@ -99,6 +118,7 @@ public class MapViewController : MonoBehaviour
             new Vector2(0.5f, 0.5f),
             texture.width / displaySizeUnits.x);
         mapBackgroundRenderer.sortingOrder = -10;
+        UpdateFreeCellGroundTransform();
         UpdateMapBackgroundTransform();
         CreateGridLines();
         AdjustCameraToFitMap();
@@ -124,6 +144,56 @@ public class MapViewController : MonoBehaviour
     public Vector3 MapToLocalPosition(Vector2 mapPositionMeters)
     {
         return new Vector3(mapPositionMeters.x, mapPositionMeters.y, 0f);
+    }
+
+    private void CreateFreeCellGround()
+    {
+        if (freeCellGroundMaterial == null)
+        {
+            return;
+        }
+
+        GameObject ground = CreateChild("MapGround");
+        freeCellGroundMeshFilter = ground.GetComponent<MeshFilter>();
+        if (freeCellGroundMeshFilter == null)
+        {
+            freeCellGroundMeshFilter = ground.AddComponent<MeshFilter>();
+        }
+
+        freeCellGroundRenderer = ground.GetComponent<MeshRenderer>();
+        if (freeCellGroundRenderer == null)
+        {
+            freeCellGroundRenderer = ground.AddComponent<MeshRenderer>();
+        }
+
+        freeCellGroundMeshFilter.sharedMesh = CreateFreeCellGroundMesh();
+        freeCellGroundMaterialInstance = new Material(freeCellGroundMaterial);
+        freeCellGroundRenderer.sharedMaterial = freeCellGroundMaterialInstance;
+        freeCellGroundRenderer.sortingOrder = freeCellGroundSortingOrder;
+        UpdateFreeCellGroundTransform();
+    }
+
+    private Mesh CreateFreeCellGroundMesh()
+    {
+        Mesh mesh = new Mesh();
+        mesh.name = "MapGroundMesh";
+        mesh.vertices = new[]
+        {
+            new Vector3(-0.5f, -0.5f, 0f),
+            new Vector3(0.5f, -0.5f, 0f),
+            new Vector3(-0.5f, 0.5f, 0f),
+            new Vector3(0.5f, 0.5f, 0f)
+        };
+        mesh.triangles = new[] { 0, 2, 1, 2, 3, 1 };
+        mesh.uv = new[]
+        {
+            new Vector2(0f, 0f),
+            new Vector2(1f, 0f),
+            new Vector2(0f, 1f),
+            new Vector2(1f, 1f)
+        };
+        mesh.RecalculateBounds();
+        return mesh;
     }
 
     private void CreateMapBackground()
@@ -429,6 +499,11 @@ public class MapViewController : MonoBehaviour
     {
         if (occupancyValue == 0)
         {
+            if (freeCellGroundMaterial != null)
+            {
+                return Color.clear;
+            }
+
             return freeCellColor;
         }
 
@@ -438,6 +513,42 @@ public class MapViewController : MonoBehaviour
         }
 
         return unknownCellColor;
+    }
+
+    private void UpdateFreeCellGroundTransform()
+    {
+        if (freeCellGroundRenderer == null)
+        {
+            return;
+        }
+
+        Vector2 mapCenter = mapOriginMeters + mapSizeMeters * 0.5f;
+        freeCellGroundRenderer.transform.localPosition = new Vector3(mapCenter.x, mapCenter.y, 0.1f);
+        freeCellGroundRenderer.transform.localRotation = Quaternion.identity;
+        freeCellGroundRenderer.transform.localScale = new Vector3(displaySizeUnits.x, displaySizeUnits.y, 1f);
+        freeCellGroundRenderer.sortingOrder = freeCellGroundSortingOrder;
+        UpdateFreeCellGroundUv();
+    }
+
+    private void UpdateFreeCellGroundUv()
+    {
+        if (freeCellGroundMeshFilter == null || freeCellGroundMeshFilter.sharedMesh == null)
+        {
+            return;
+        }
+
+        float tileWidth = Mathf.Max(0.01f, freeCellTextureTileSizeMeters.x);
+        float tileHeight = Mathf.Max(0.01f, freeCellTextureTileSizeMeters.y);
+        float repeatX = mapSizeMeters.x / tileWidth;
+        float repeatY = mapSizeMeters.y / tileHeight;
+
+        freeCellGroundMeshFilter.sharedMesh.uv = new[]
+        {
+            new Vector2(0f, 0f),
+            new Vector2(repeatX, 0f),
+            new Vector2(0f, repeatY),
+            new Vector2(repeatX, repeatY)
+        };
     }
 
     private void UpdateMapBackgroundTransform()
