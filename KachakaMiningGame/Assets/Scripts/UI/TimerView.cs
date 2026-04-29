@@ -1,15 +1,15 @@
 using UnityEngine;
-using UnityEngine.UI;
+using TMPro;
 
 public class TimerView : MonoBehaviour
 {
-    [SerializeField] private Text timerText;
+    [SerializeField] private TMP_Text timerText;
 
     private void Awake()
     {
         if (timerText == null)
         {
-            timerText = GetComponent<Text>();
+            timerText = GetComponent<TMP_Text>();
         }
     }
 

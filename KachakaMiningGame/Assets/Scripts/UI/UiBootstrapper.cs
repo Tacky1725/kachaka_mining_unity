@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -10,7 +11,8 @@ public static class UiBootstrapper
         out GameStateView stateView,
         out PopupController popupController,
         out StartScreenView startScreenView,
-        out FinishScreenView finishScreenView)
+        out FinishScreenView finishScreenView
+    )
     {
         Canvas canvas = Object.FindObjectOfType<Canvas>();
         if (canvas == null)
@@ -33,37 +35,102 @@ public static class UiBootstrapper
         EnsureEventSystem();
 
         Transform canvasTransform = canvas.transform;
-        scoreView = EnsureTextObject<ScoreView>(canvasTransform, "ScoreText", new Vector2(24f, -24f), TextAnchor.UpperLeft);
-        timerView = EnsureTextObject<TimerView>(canvasTransform, "TimerText", new Vector2(-24f, -24f), TextAnchor.UpperRight);
-        stateView = EnsureTextObject<GameStateView>(canvasTransform, "StateText", new Vector2(24f, -64f), TextAnchor.UpperLeft);
+        scoreView = EnsureTmpTextObject<ScoreView>(
+            canvasTransform,
+            "ScoreText",
+            new Vector2(24f, -24f),
+            TextAlignmentOptions.TopLeft
+        );
+        timerView = EnsureTmpTextObject<TimerView>(
+            canvasTransform,
+            "TimerText",
+            new Vector2(-24f, -24f),
+            TextAlignmentOptions.TopRight
+        );
+        stateView = EnsureTextObject<GameStateView>(
+            canvasTransform,
+            "StateText",
+            new Vector2(24f, -64f),
+            TextAnchor.UpperLeft
+        );
         popupController = EnsurePopup(canvasTransform);
         startScreenView = EnsureStartScreen(canvasTransform);
         finishScreenView = EnsureFinishScreen(canvasTransform);
     }
 
-    private static T EnsureTextObject<T>(Transform parent, string objectName, Vector2 anchoredPosition, TextAnchor alignment) where T : Component
+    private static T EnsureTmpTextObject<T>(
+        Transform parent,
+        string objectName,
+        Vector2 anchoredPosition,
+        TextAlignmentOptions alignment
+    )
+        where T : Component
     {
         Transform existing = parent.Find(objectName);
-        GameObject textObject = existing != null ? existing.gameObject : new GameObject(objectName);
+        bool createdObject = existing == null;
+        GameObject textObject = createdObject ? new GameObject(objectName) : existing.gameObject;
+        textObject.transform.SetParent(parent, false);
+
+        TMP_Text text = textObject.GetComponent<TMP_Text>();
+        if (text == null)
+        {
+            text = textObject.AddComponent<TextMeshProUGUI>();
+            text.font = TMP_Settings.defaultFontAsset;
+            text.fontSize = 28;
+            text.color = Color.white;
+            text.alignment = alignment;
+        }
+
+        RectTransform rectTransform = textObject.GetComponent<RectTransform>();
+        if (createdObject)
+        {
+            bool alignRight = alignment == TextAlignmentOptions.TopRight;
+            rectTransform.anchorMin = alignRight ? new Vector2(1f, 1f) : new Vector2(0f, 1f);
+            rectTransform.anchorMax = rectTransform.anchorMin;
+            rectTransform.pivot = alignRight ? new Vector2(1f, 1f) : new Vector2(0f, 1f);
+            rectTransform.anchoredPosition = anchoredPosition;
+            rectTransform.sizeDelta = new Vector2(260f, 42f);
+        }
+
+        T component = textObject.GetComponent<T>();
+        return component != null ? component : textObject.AddComponent<T>();
+    }
+
+    private static T EnsureTextObject<T>(
+        Transform parent,
+        string objectName,
+        Vector2 anchoredPosition,
+        TextAnchor alignment
+    )
+        where T : Component
+    {
+        Transform existing = parent.Find(objectName);
+        bool createdObject = existing == null;
+        GameObject textObject = createdObject ? new GameObject(objectName) : existing.gameObject;
         textObject.transform.SetParent(parent, false);
 
         Text text = textObject.GetComponent<Text>();
         if (text == null)
         {
             text = textObject.AddComponent<Text>();
+
+            text.font = GetBuiltinUiFont();
+            text.fontSize = 28;
+            text.color = Color.white;
+            text.alignment = alignment;
         }
 
-        text.font = GetBuiltinUiFont();
-        text.fontSize = 28;
-        text.color = Color.white;
-        text.alignment = alignment;
-
         RectTransform rectTransform = textObject.GetComponent<RectTransform>();
-        rectTransform.anchorMin = alignment == TextAnchor.UpperRight ? new Vector2(1f, 1f) : new Vector2(0f, 1f);
-        rectTransform.anchorMax = rectTransform.anchorMin;
-        rectTransform.pivot = alignment == TextAnchor.UpperRight ? new Vector2(1f, 1f) : new Vector2(0f, 1f);
-        rectTransform.anchoredPosition = anchoredPosition;
-        rectTransform.sizeDelta = new Vector2(260f, 42f);
+        if (createdObject)
+        {
+            rectTransform.anchorMin =
+                alignment == TextAnchor.UpperRight ? new Vector2(1f, 1f) : new Vector2(0f, 1f);
+            rectTransform.anchorMax = rectTransform.anchorMin;
+            rectTransform.pivot =
+                alignment == TextAnchor.UpperRight ? new Vector2(1f, 1f) : new Vector2(0f, 1f);
+            rectTransform.anchoredPosition = anchoredPosition;
+            rectTransform.sizeDelta = new Vector2(260f, 42f);
+        }
 
         T component = textObject.GetComponent<T>();
         return component != null ? component : textObject.AddComponent<T>();
@@ -72,7 +139,8 @@ public static class UiBootstrapper
     private static PopupController EnsurePopup(Transform parent)
     {
         Transform existingRoot = parent.Find("PopupRoot");
-        GameObject popupRoot = existingRoot != null ? existingRoot.gameObject : new GameObject("PopupRoot");
+        bool createdRoot = existingRoot == null;
+        GameObject popupRoot = createdRoot ? new GameObject("PopupRoot") : existingRoot.gameObject;
         popupRoot.transform.SetParent(parent, false);
 
         RectTransform rootRect = popupRoot.GetComponent<RectTransform>();
@@ -81,32 +149,41 @@ public static class UiBootstrapper
             rootRect = popupRoot.AddComponent<RectTransform>();
         }
 
-        rootRect.anchorMin = new Vector2(0.5f, 0.5f);
-        rootRect.anchorMax = new Vector2(0.5f, 0.5f);
-        rootRect.pivot = new Vector2(0.5f, 0.5f);
-        rootRect.anchoredPosition = Vector2.zero;
-        rootRect.sizeDelta = new Vector2(160f, 80f);
-
-        Transform existingText = popupRoot.transform.Find("ScorePopupText");
-        GameObject textObject = existingText != null ? existingText.gameObject : new GameObject("ScorePopupText");
-        textObject.transform.SetParent(popupRoot.transform, false);
-
-        Text text = textObject.GetComponent<Text>();
-        if (text == null)
+        if (createdRoot)
         {
-            text = textObject.AddComponent<Text>();
+            rootRect.anchorMin = new Vector2(0.5f, 0.5f);
+            rootRect.anchorMax = new Vector2(0.5f, 0.5f);
+            rootRect.pivot = new Vector2(0.5f, 0.5f);
+            rootRect.anchoredPosition = Vector2.zero;
+            rootRect.sizeDelta = new Vector2(160f, 80f);
         }
 
-        text.font = GetBuiltinUiFont();
-        text.fontSize = 42;
-        text.color = new Color(1f, 0.86f, 0.22f);
-        text.alignment = TextAnchor.MiddleCenter;
+        Transform existingText = popupRoot.transform.Find("ScorePopupText");
+        bool createdTextObject = existingText == null;
+        GameObject textObject = createdTextObject
+            ? new GameObject("ScorePopupText")
+            : existingText.gameObject;
+        textObject.transform.SetParent(popupRoot.transform, false);
+
+        TMP_Text text = textObject.GetComponent<TMP_Text>();
+        if (text == null)
+        {
+            text = textObject.AddComponent<TextMeshProUGUI>();
+            text.font = TMP_Settings.defaultFontAsset;
+            text.fontSize = 42;
+            text.color = new Color(1f, 0.86f, 0.22f);
+            text.alignment = TextAlignmentOptions.Center;
+            text.text = "+1";
+        }
 
         RectTransform textRect = textObject.GetComponent<RectTransform>();
-        textRect.anchorMin = Vector2.zero;
-        textRect.anchorMax = Vector2.one;
-        textRect.offsetMin = Vector2.zero;
-        textRect.offsetMax = Vector2.zero;
+        if (createdTextObject)
+        {
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+        }
 
         PopupController controller = popupRoot.GetComponent<PopupController>();
         return controller != null ? controller : popupRoot.AddComponent<PopupController>();
@@ -137,31 +214,59 @@ public static class UiBootstrapper
 
     private static StartScreenView EnsureStartScreen(Transform parent)
     {
-        GameObject screenObject = EnsurePanel(parent, "StartScreen", new Color(0.05f, 0.08f, 0.11f, 0.9f));
-        EnsureCenteredText(screenObject.transform, "TitleText", "Kachaka Mining Game", new Vector2(0f, 80f), 42, new Vector2(520f, 60f));
-        EnsureButton(screenObject.transform, "StartButton", "START", new Vector2(0f, -10f), new Vector2(220f, 64f));
+        Transform existing = parent.Find("StartScreen");
+        if (existing != null)
+        {
+            StartScreenView existingView = existing.GetComponent<StartScreenView>();
+            return existingView != null
+                ? existingView
+                : existing.gameObject.AddComponent<StartScreenView>();
+        }
 
+        GameObject screenObject = EnsurePanel(
+            parent,
+            "StartScreen",
+            new Color(0.05f, 0.08f, 0.11f, 0.9f)
+        );
         StartScreenView view = screenObject.GetComponent<StartScreenView>();
         return view != null ? view : screenObject.AddComponent<StartScreenView>();
     }
 
     private static FinishScreenView EnsureFinishScreen(Transform parent)
     {
-        GameObject screenObject = EnsurePanel(parent, "FinishScreen", new Color(0.08f, 0.05f, 0.08f, 0.92f));
-        Transform contentRoot = EnsureVerticalContentRoot(screenObject.transform, "ContentRoot", new Vector2(860f, 420f));
-        EnsureLayoutText(contentRoot, "TitleText", "Game Finished", 40, new Vector2(700f, 60f), TextAnchor.MiddleCenter);
-        EnsureLayoutText(contentRoot, "CurrentScoreText", "Score: 0", 34, new Vector2(420f, 50f), TextAnchor.MiddleCenter);
-        EnsureHistoryTable(contentRoot, new Vector2(800f, 220f));
-        EnsureLayoutButton(contentRoot, "BackButton", "BACK TO START", new Vector2(300f, 58f));
+        FinishScreenView sceneView = Object.FindObjectOfType<FinishScreenView>(true);
+        if (sceneView != null)
+        {
+            return sceneView;
+        }
 
+        Transform existing = parent.Find("FinishScreen");
+        if (existing != null)
+        {
+            FinishScreenView existingView = existing.GetComponent<FinishScreenView>();
+            return existingView != null
+                ? existingView
+                : existing.gameObject.AddComponent<FinishScreenView>();
+        }
+
+        GameObject screenObject = EnsurePanel(
+            parent,
+            "FinishScreen",
+            new Color(0.08f, 0.05f, 0.08f, 0.92f)
+        );
         FinishScreenView view = screenObject.GetComponent<FinishScreenView>();
         return view != null ? view : screenObject.AddComponent<FinishScreenView>();
     }
 
-    private static GameObject EnsurePanel(Transform parent, string objectName, Color backgroundColor)
+    private static GameObject EnsurePanel(
+        Transform parent,
+        string objectName,
+        Color backgroundColor
+    )
     {
         Transform existing = parent.Find(objectName);
-        GameObject panelObject = existing != null ? existing.gameObject : new GameObject(objectName);
+        GameObject panelObject =
+            existing != null ? existing.gameObject : new GameObject(objectName);
         panelObject.transform.SetParent(parent, false);
 
         Image image = panelObject.GetComponent<Image>();
@@ -181,7 +286,14 @@ public static class UiBootstrapper
         return panelObject;
     }
 
-    private static Text EnsureCenteredText(Transform parent, string objectName, string defaultText, Vector2 anchoredPosition, int fontSize, Vector2 size)
+    private static Text EnsureCenteredText(
+        Transform parent,
+        string objectName,
+        string defaultText,
+        Vector2 anchoredPosition,
+        int fontSize,
+        Vector2 size
+    )
     {
         Transform existing = parent.Find(objectName);
         GameObject textObject = existing != null ? existing.gameObject : new GameObject(objectName);
@@ -209,10 +321,17 @@ public static class UiBootstrapper
         return text;
     }
 
-    private static Button EnsureButton(Transform parent, string objectName, string label, Vector2 anchoredPosition, Vector2 size)
+    private static Button EnsureButton(
+        Transform parent,
+        string objectName,
+        string label,
+        Vector2 anchoredPosition,
+        Vector2 size
+    )
     {
         Transform existing = parent.Find(objectName);
-        GameObject buttonObject = existing != null ? existing.gameObject : new GameObject(objectName);
+        bool createdObject = existing == null;
+        GameObject buttonObject = createdObject ? new GameObject(objectName) : existing.gameObject;
         buttonObject.transform.SetParent(parent, false);
 
         Image image = buttonObject.GetComponent<Image>();
@@ -221,7 +340,15 @@ public static class UiBootstrapper
             image = buttonObject.AddComponent<Image>();
         }
 
-        image.color = new Color(0.18f, 0.54f, 0.34f, 0.95f);
+        bool hasCustomSprite = image.sprite != null;
+        Color normalColor = hasCustomSprite ? Color.white : new Color(0.18f, 0.54f, 0.34f, 0.95f);
+        Color highlightedColor = hasCustomSprite
+            ? new Color(0.95f, 0.95f, 0.95f, 1f)
+            : new Color(0.24f, 0.68f, 0.42f, 0.98f);
+        Color pressedColor = hasCustomSprite
+            ? new Color(0.82f, 0.82f, 0.82f, 1f)
+            : new Color(0.12f, 0.42f, 0.25f, 0.98f);
+        image.color = normalColor;
 
         Button button = buttonObject.GetComponent<Button>();
         if (button == null)
@@ -230,18 +357,21 @@ public static class UiBootstrapper
         }
 
         ColorBlock colors = button.colors;
-        colors.normalColor = image.color;
-        colors.highlightedColor = new Color(0.24f, 0.68f, 0.42f, 0.98f);
-        colors.pressedColor = new Color(0.12f, 0.42f, 0.25f, 0.98f);
+        colors.normalColor = normalColor;
+        colors.highlightedColor = highlightedColor;
+        colors.pressedColor = pressedColor;
         colors.selectedColor = colors.highlightedColor;
         button.colors = colors;
 
         RectTransform rectTransform = buttonObject.GetComponent<RectTransform>();
-        rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-        rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-        rectTransform.pivot = new Vector2(0.5f, 0.5f);
-        rectTransform.anchoredPosition = anchoredPosition;
-        rectTransform.sizeDelta = size;
+        if (createdObject)
+        {
+            rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            rectTransform.anchoredPosition = anchoredPosition;
+            rectTransform.sizeDelta = size;
+        }
 
         EnsureButtonLabel(buttonObject.transform, label);
         return button;
@@ -253,16 +383,16 @@ public static class UiBootstrapper
         GameObject textObject = existing != null ? existing.gameObject : new GameObject("Text");
         textObject.transform.SetParent(buttonTransform, false);
 
-        Text text = textObject.GetComponent<Text>();
+        TMP_Text text = textObject.GetComponent<TMP_Text>();
         if (text == null)
         {
-            text = textObject.AddComponent<Text>();
+            text = textObject.AddComponent<TextMeshProUGUI>();
         }
 
-        text.font = GetBuiltinUiFont();
+        text.font = TMP_Settings.defaultFontAsset;
         text.fontSize = 24;
         text.color = Color.white;
-        text.alignment = TextAnchor.MiddleCenter;
+        text.alignment = TextAlignmentOptions.Center;
         text.text = label;
 
         RectTransform rectTransform = textObject.GetComponent<RectTransform>();
@@ -272,7 +402,11 @@ public static class UiBootstrapper
         rectTransform.offsetMax = Vector2.zero;
     }
 
-    private static Transform EnsureVerticalContentRoot(Transform parent, string objectName, Vector2 size)
+    private static Transform EnsureVerticalContentRoot(
+        Transform parent,
+        string objectName,
+        Vector2 size
+    )
     {
         Transform existing = parent.Find(objectName);
         GameObject rootObject = existing != null ? existing.gameObject : new GameObject(objectName);
@@ -316,22 +450,29 @@ public static class UiBootstrapper
         return rootObject.transform;
     }
 
-    private static Text EnsureLayoutText(Transform parent, string objectName, string defaultText, int fontSize, Vector2 size, TextAnchor alignment)
+    private static TMP_Text EnsureLayoutText(
+        Transform parent,
+        string objectName,
+        string defaultText,
+        int fontSize,
+        Vector2 size,
+        TextAnchor alignment
+    )
     {
         Transform existing = parent.Find(objectName);
         GameObject textObject = existing != null ? existing.gameObject : new GameObject(objectName);
         textObject.transform.SetParent(parent, false);
 
-        Text text = textObject.GetComponent<Text>();
+        TMP_Text text = textObject.GetComponent<TMP_Text>();
         if (text == null)
         {
-            text = textObject.AddComponent<Text>();
+            text = textObject.AddComponent<TextMeshProUGUI>();
         }
 
-        text.font = GetBuiltinUiFont();
+        text.font = TMP_Settings.defaultFontAsset;
         text.fontSize = fontSize;
         text.color = Color.white;
-        text.alignment = alignment;
+        text.alignment = ToTmpAlignment(alignment);
         text.text = defaultText;
 
         RectTransform rectTransform = textObject.GetComponent<RectTransform>();
@@ -352,10 +493,33 @@ public static class UiBootstrapper
         return text;
     }
 
-    private static Button EnsureLayoutButton(Transform parent, string objectName, string label, Vector2 size)
+    private static TextAlignmentOptions ToTmpAlignment(TextAnchor alignment)
+    {
+        return alignment switch
+        {
+            TextAnchor.UpperLeft => TextAlignmentOptions.TopLeft,
+            TextAnchor.UpperCenter => TextAlignmentOptions.Top,
+            TextAnchor.UpperRight => TextAlignmentOptions.TopRight,
+            TextAnchor.MiddleLeft => TextAlignmentOptions.MidlineLeft,
+            TextAnchor.MiddleCenter => TextAlignmentOptions.Center,
+            TextAnchor.MiddleRight => TextAlignmentOptions.MidlineRight,
+            TextAnchor.LowerLeft => TextAlignmentOptions.BottomLeft,
+            TextAnchor.LowerCenter => TextAlignmentOptions.Bottom,
+            TextAnchor.LowerRight => TextAlignmentOptions.BottomRight,
+            _ => TextAlignmentOptions.Center
+        };
+    }
+
+    private static Button EnsureLayoutButton(
+        Transform parent,
+        string objectName,
+        string label,
+        Vector2 size
+    )
     {
         Transform existing = parent.Find(objectName);
-        GameObject buttonObject = existing != null ? existing.gameObject : new GameObject(objectName);
+        GameObject buttonObject =
+            existing != null ? existing.gameObject : new GameObject(objectName);
         buttonObject.transform.SetParent(parent, false);
 
         Image image = buttonObject.GetComponent<Image>();
@@ -401,7 +565,8 @@ public static class UiBootstrapper
     private static void EnsureHistoryTable(Transform parent, Vector2 size)
     {
         Transform existing = parent.Find("HistoryTableRoot");
-        GameObject tableObject = existing != null ? existing.gameObject : new GameObject("HistoryTableRoot");
+        GameObject tableObject =
+            existing != null ? existing.gameObject : new GameObject("HistoryTableRoot");
         tableObject.transform.SetParent(parent, false);
 
         RectTransform rectTransform = tableObject.GetComponent<RectTransform>();

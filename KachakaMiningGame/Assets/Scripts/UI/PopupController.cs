@@ -1,17 +1,21 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.UI;
+using TMPro;
 
 public class PopupController : MonoBehaviour
 {
     [SerializeField] private float visibleSeconds = 0.8f;
+    [SerializeField] private TMP_Text popupText;
 
-    private Text popupText;
     private Coroutine popupRoutine;
 
     private void Awake()
     {
-        popupText = GetComponentInChildren<Text>();
+        if (popupText == null)
+        {
+            popupText = GetComponentInChildren<TMP_Text>();
+        }
+
         if (popupText != null)
         {
             popupText.enabled = false;

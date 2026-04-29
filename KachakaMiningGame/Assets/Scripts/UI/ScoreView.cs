@@ -1,15 +1,15 @@
 using UnityEngine;
-using UnityEngine.UI;
+using TMPro;
 
 public class ScoreView : MonoBehaviour
 {
-    [SerializeField] private Text scoreText;
+    [SerializeField] private TMP_Text scoreText;
 
     private void Awake()
     {
         if (scoreText == null)
         {
-            scoreText = GetComponent<Text>();
+            scoreText = GetComponent<TMP_Text>();
         }
     }
 
