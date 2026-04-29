@@ -40,6 +40,7 @@ public class MapViewController : MonoBehaviour
     [SerializeField] private GameObject robotBeaconPrefab;
     [SerializeField] private GameObject artifactMarkerPrefab;
     [SerializeField] private GameObject originMarkerPrefab;
+    [SerializeField] private bool alignArtifactMarkerToCamera = true;
 
     [Header("Radar Visibility")]
     [SerializeField] private bool limitArtifactVisibilityToRadar = true;
@@ -361,9 +362,20 @@ public class MapViewController : MonoBehaviour
         GameObject markerObject = artifactMarkerPrefab != null ? Instantiate(artifactMarkerPrefab, markerRoot) : new GameObject("ArtifactMarker");
         markerObject.name = "ArtifactMarker";
         markerObject.transform.SetParent(markerRoot, false);
+        AlignMarkerToCamera(markerObject.transform);
 
         ArtifactMarkerController controller = markerObject.GetComponent<ArtifactMarkerController>();
         return controller != null ? controller : markerObject.AddComponent<ArtifactMarkerController>();
+    }
+
+    private void AlignMarkerToCamera(Transform markerTransform)
+    {
+        if (!alignArtifactMarkerToCamera || markerTransform == null || mapCamera == null)
+        {
+            return;
+        }
+
+        markerTransform.rotation = mapCamera.transform.rotation;
     }
 
     private void UpdateOriginMarker(OccupancyGridMsg grid)
@@ -442,6 +454,7 @@ public class MapViewController : MonoBehaviour
         Vector2 mapCenter = mapOriginMeters + mapSizeMeters * 0.5f;
         mapCamera.transform.position = new Vector3(mapCenter.x, mapCenter.y, mapCamera.transform.position.z);
         mapCamera.transform.rotation = Quaternion.Euler(0f, 0f, cameraViewRotationDegrees);
+        AlignMarkerToCamera(artifactMarker != null ? artifactMarker.transform : null);
     }
 
     private void LogMapWorldSize()

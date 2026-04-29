@@ -364,8 +364,9 @@ MonoBehaviour:
   radarSweep: {fileID: 0}
   artifactMarker: {fileID: 0}
   robotBeaconPrefab: {fileID: 2726253987078505584, guid: 55ed5067f0ee4fae986cb9214d3091c6, type: 3}
-  artifactMarkerPrefab: {fileID: 6481349942245988202, guid: dbdc2648619b0414281274f7a3c61c89, type: 3}
+  artifactMarkerPrefab: {fileID: 6481349942245988202, guid: b740fd2d676de274a93c8bf320d7839e, type: 3}
   originMarkerPrefab: {fileID: 5805676892767068435, guid: 51ebc55a680600b4f91b451244a9ea14, type: 3}
+  alignArtifactMarkerToCamera: 1
   limitArtifactVisibilityToRadar: 1
 --- !u!1 &310000
 GameObject:
