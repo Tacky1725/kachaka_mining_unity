@@ -350,7 +350,7 @@ MonoBehaviour:
   flipMapVertically: 0
   mapCamera: {fileID: 200002}
   cameraPaddingUnits: 0.1
-  cameraZoomScale: 0.8
+  cameraZoomScale: 0.7
   cameraViewRotationDegrees: 270
   logMapWorldSize: 0
   verticalGridDivisions: 4

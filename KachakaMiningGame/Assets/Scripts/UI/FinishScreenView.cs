@@ -138,7 +138,7 @@ public class FinishScreenView : MonoBehaviour
         GameObject headerRow = CreateRowObject("HistoryHeaderRow");
         CreateCell(headerRow.transform, "RankHeader", "Rank", 120f, FontStyle.Bold);
         CreateCell(headerRow.transform, "ScoreHeader", "Score", 200f, FontStyle.Bold);
-        CreateCell(headerRow.transform, "PlayedAtHeader", "Played At", 320f, FontStyle.Bold);
+        CreateCell(headerRow.transform, "PlayedAtHeader", "Played at", 320f, FontStyle.Bold);
     }
 
     private void CreateDataRow(string rank, string score, string playedAt)

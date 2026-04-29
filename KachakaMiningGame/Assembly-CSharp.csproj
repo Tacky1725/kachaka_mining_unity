@@ -70,6 +70,7 @@
     <Compile Include="Assets\Scripts\UI\UiBootstrapper.cs" />
     <Compile Include="Assets\Scripts\UI\StartScreenView.cs" />
     <Compile Include="Assets\Scripts\Integration\GameRosPublisher.cs" />
+    <Compile Include="Assets\Scripts\Markers\RadarSweepController.cs" />
     <Compile Include="Assets\Scripts\Game\GameManager.cs" />
     <Compile Include="Assets\Scripts\Map\SpriteFactory.cs" />
     <Compile Include="Assets\Scripts\UI\FinishScreenView.cs" />

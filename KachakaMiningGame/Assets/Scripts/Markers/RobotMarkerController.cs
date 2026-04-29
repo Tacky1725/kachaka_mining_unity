@@ -5,6 +5,8 @@ public class RobotMarkerController : MonoBehaviour
     [SerializeField] private float markerSize = 0.35f;
     [SerializeField] private Color markerColor = new Color(0.1f, 0.72f, 0.95f);
     [SerializeField] private string bodyRendererName = "Body";
+    [SerializeField] private Transform sensorTransform;
+    [SerializeField] private string sensorObjectName = "Sensor";
     [SerializeField] private float rotationOffsetDegrees = 0f;
     [SerializeField] private float markerZPosition = -1f;
 
@@ -16,6 +18,16 @@ public class RobotMarkerController : MonoBehaviour
     private void Awake()
     {
         EnsureRenderer();
+        EnsureSensorTransform();
+    }
+
+    public Transform SensorTransform
+    {
+        get
+        {
+            EnsureSensorTransform();
+            return sensorTransform != null ? sensorTransform : transform;
+        }
     }
 
     public void SetPose(Vector3 localPosition, float headingDegrees)
@@ -99,6 +111,26 @@ public class RobotMarkerController : MonoBehaviour
         spriteRenderer.sprite = SpriteFactory.CreateTriangleSprite("RobotMarkerSprite", markerColor);
         spriteRenderer.sortingOrder = 10;
         transform.localScale = Vector3.one * markerSize;
+    }
+
+    private void EnsureSensorTransform()
+    {
+        if (sensorTransform != null)
+        {
+            return;
+        }
+
+        Transform[] children = GetComponentsInChildren<Transform>(true);
+        foreach (Transform child in children)
+        {
+            if (child != null && child.name == sensorObjectName)
+            {
+                sensorTransform = child;
+                return;
+            }
+        }
+
+        sensorTransform = transform;
     }
 
     private SpriteRenderer FindBodyRenderer()

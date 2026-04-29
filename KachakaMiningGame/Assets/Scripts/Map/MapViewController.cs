@@ -30,10 +30,14 @@ public class MapViewController : MonoBehaviour
 
     [Header("Marker References")]
     [SerializeField] private RobotMarkerController robotMarker;
+    [SerializeField] private RadarSweepController radarSweep;
     [SerializeField] private ArtifactMarkerController artifactMarker;
     [SerializeField] private GameObject robotBeaconPrefab;
     [SerializeField] private GameObject artifactMarkerPrefab;
     [SerializeField] private GameObject originMarkerPrefab;
+
+    [Header("Radar Visibility")]
+    [SerializeField] private bool limitArtifactVisibilityToRadar = true;
 
     private Vector2 mapOriginMeters;
     private Vector2 mapSizeMeters;
@@ -43,6 +47,8 @@ public class MapViewController : MonoBehaviour
     private Transform markerRoot;
     private Transform gridRoot;
     private bool initialized;
+    private Vector2 currentArtifactMapPosition;
+    private bool artifactExists;
     private Vector2Int lastGridDimensions;
     private float lastGridResolution;
 
@@ -63,6 +69,7 @@ public class MapViewController : MonoBehaviour
         AdjustCameraToFitMap();
         markerRoot = CreateChild("MarkerRoot").transform;
         robotMarker = EnsureRobotMarker();
+        EnsureRadarSweep(robotMarker);
         artifactMarker = EnsureArtifactMarker();
 
         initialized = true;
@@ -103,12 +110,15 @@ public class MapViewController : MonoBehaviour
     public void UpdateRobot(Vector2 mapPositionMeters, float headingDegrees)
     {
         robotMarker.SetPose(MapToLocalPosition(mapPositionMeters), headingDegrees);
+        RefreshArtifactVisibility();
     }
 
     public void UpdateArtifact(Vector2 mapPositionMeters, bool visible)
     {
+        currentArtifactMapPosition = mapPositionMeters;
+        artifactExists = visible;
         artifactMarker.SetPosition(MapToLocalPosition(mapPositionMeters));
-        artifactMarker.SetVisible(visible);
+        RefreshArtifactVisibility();
     }
 
     public Vector3 MapToLocalPosition(Vector2 mapPositionMeters)
@@ -226,7 +236,9 @@ public class MapViewController : MonoBehaviour
         if (robotBeaconPrefab == null && existing != null)
         {
             RobotMarkerController existingController = existing.GetComponent<RobotMarkerController>();
-            return existingController != null ? existingController : existing.gameObject.AddComponent<RobotMarkerController>();
+            RobotMarkerController existingRobotMarker = existingController != null ? existingController : existing.gameObject.AddComponent<RobotMarkerController>();
+            EnsureRadarSweep(existingRobotMarker);
+            return existingRobotMarker;
         }
 
         if (robotBeaconPrefab != null && existing != null)
@@ -240,7 +252,26 @@ public class MapViewController : MonoBehaviour
         markerObject.transform.SetParent(markerRoot, false);
 
         RobotMarkerController controller = markerObject.GetComponent<RobotMarkerController>();
-        return controller != null ? controller : markerObject.AddComponent<RobotMarkerController>();
+        controller = controller != null ? controller : markerObject.AddComponent<RobotMarkerController>();
+        EnsureRadarSweep(controller);
+        return controller;
+    }
+
+    private RadarSweepController EnsureRadarSweep(RobotMarkerController controller)
+    {
+        if (controller == null)
+        {
+            return null;
+        }
+
+        RadarSweepController controllerRadarSweep = controller.GetComponent<RadarSweepController>();
+        if (controllerRadarSweep == null)
+        {
+            controllerRadarSweep = controller.gameObject.AddComponent<RadarSweepController>();
+        }
+
+        radarSweep = controllerRadarSweep;
+        return radarSweep;
     }
 
     private ArtifactMarkerController EnsureArtifactMarker()
@@ -281,6 +312,43 @@ public class MapViewController : MonoBehaviour
 
         originMarkerInstance.localPosition = new Vector3(0f, 0f, -0.9f);
         originMarkerInstance.localRotation = Quaternion.identity;
+    }
+
+    private void LateUpdate()
+    {
+        RefreshArtifactVisibility();
+    }
+
+    private void RefreshArtifactVisibility()
+    {
+        if (!initialized || artifactMarker == null)
+        {
+            return;
+        }
+
+        bool shouldShowArtifact = artifactExists;
+        if (shouldShowArtifact && limitArtifactVisibilityToRadar)
+        {
+            shouldShowArtifact = IsArtifactInsideRadar();
+        }
+
+        artifactMarker.SetVisible(shouldShowArtifact);
+    }
+
+    private bool IsArtifactInsideRadar()
+    {
+        if (radarSweep == null)
+        {
+            radarSweep = robotMarker != null ? robotMarker.GetComponent<RadarSweepController>() : null;
+        }
+
+        if (radarSweep == null)
+        {
+            return false;
+        }
+
+        Vector3 artifactWorldPosition = transform.TransformPoint(MapToLocalPosition(currentArtifactMapPosition));
+        return radarSweep.ContainsWorldPoint(artifactWorldPosition);
     }
 
     private void AdjustCameraToFitMap()
