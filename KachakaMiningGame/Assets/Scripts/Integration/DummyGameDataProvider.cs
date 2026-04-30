@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class DummyGameDataProvider : MonoBehaviour
@@ -10,7 +11,16 @@ public class DummyGameDataProvider : MonoBehaviour
         new Vector2(0.8f, -0.8f),
         new Vector2(-0.9f, -0.6f)
     };
+    [SerializeField] private ArtifactKind[] artifactKinds =
+    {
+        ArtifactKind.Coal,
+        ArtifactKind.Stone,
+        ArtifactKind.Bomb
+    };
+    [SerializeField] private ArtifactCatalog artifactCatalog;
     [SerializeField] private bool avoidImmediateArtifactRespawnRepeat = true;
+    [SerializeField, Range(0f, 100f)] private float activeArtifactCandidatePercent = 50f;
+    [SerializeField, Min(0)] private int maxActiveArtifactCount = 3;
 
     [Header("Robot Dummy Motion")]
     [SerializeField] private Vector2 robotPathCenter = Vector2.zero;
@@ -18,13 +28,21 @@ public class DummyGameDataProvider : MonoBehaviour
     [SerializeField] private float robotPathSpeed = 0.6f;
 
     private Vector2 currentArtifactPosition;
+    private ArtifactKind currentArtifactKind;
     private int currentArtifactIndex = -1;
+    private readonly List<ArtifactInstance> activeArtifacts = new List<ArtifactInstance>();
+    private readonly List<int> activeArtifactIndices = new List<int>();
 
     private void Awake()
     {
         if (artifactSpawnCandidates == null || artifactSpawnCandidates.Length == 0)
         {
             artifactSpawnCandidates = new[] { Vector2.zero };
+        }
+
+        if (artifactKinds == null || artifactKinds.Length == 0)
+        {
+            artifactKinds = new[] { ArtifactKind.Coal, ArtifactKind.Stone, ArtifactKind.Bomb };
         }
 
         ResetArtifactSpawn();
@@ -46,41 +64,157 @@ public class DummyGameDataProvider : MonoBehaviour
         return currentArtifactPosition;
     }
 
+    public ArtifactKind GetArtifactKind()
+    {
+        return currentArtifactKind;
+    }
+
+    public IReadOnlyList<ArtifactInstance> GetActiveArtifacts()
+    {
+        return activeArtifacts;
+    }
+
     public Vector2 ResetArtifactSpawn()
     {
-        return SelectArtifactSpawn(forceDifferentFromCurrent: false);
+        ResetArtifactSpawns();
+        return currentArtifactPosition;
+    }
+
+    public IReadOnlyList<ArtifactInstance> ResetArtifactSpawns()
+    {
+        activeArtifacts.Clear();
+        activeArtifactIndices.Clear();
+        currentArtifactIndex = -1;
+        currentArtifactPosition = Vector2.zero;
+        currentArtifactKind = ArtifactKind.Coal;
+
+        int targetCount = CalculateActiveArtifactCount();
+        for (int i = 0; i < targetCount; i++)
+        {
+            AddRandomArtifact(forceDifferentFromCurrent: false);
+        }
+
+        return activeArtifacts;
     }
 
     public Vector2 RespawnArtifact()
     {
-        return SelectArtifactSpawn(forceDifferentFromCurrent: avoidImmediateArtifactRespawnRepeat);
+        RespawnArtifacts();
+        return currentArtifactPosition;
     }
 
-    private Vector2 SelectArtifactSpawn(bool forceDifferentFromCurrent)
+    public IReadOnlyList<ArtifactInstance> CollectArtifactAt(int activeArtifactIndex)
+    {
+        if (activeArtifactIndex >= 0 && activeArtifactIndex < activeArtifacts.Count)
+        {
+            currentArtifactIndex = activeArtifactIndices[activeArtifactIndex];
+            activeArtifacts.RemoveAt(activeArtifactIndex);
+            activeArtifactIndices.RemoveAt(activeArtifactIndex);
+        }
+
+        FillActiveArtifacts();
+        return activeArtifacts;
+    }
+
+    public IReadOnlyList<ArtifactInstance> RespawnArtifacts()
+    {
+        activeArtifacts.Clear();
+        activeArtifactIndices.Clear();
+        FillActiveArtifacts();
+        return activeArtifacts;
+    }
+
+    private int CalculateActiveArtifactCount()
+    {
+        if (artifactSpawnCandidates == null || artifactSpawnCandidates.Length == 0 || maxActiveArtifactCount <= 0)
+        {
+            return 0;
+        }
+
+        int percentCount = Mathf.CeilToInt(artifactSpawnCandidates.Length * Mathf.Clamp01(activeArtifactCandidatePercent / 100f));
+        return Mathf.Clamp(Mathf.Min(percentCount, maxActiveArtifactCount), 0, artifactSpawnCandidates.Length);
+    }
+
+    private void FillActiveArtifacts()
+    {
+        int targetCount = CalculateActiveArtifactCount();
+        while (activeArtifacts.Count < targetCount)
+        {
+            if (!AddRandomArtifact(forceDifferentFromCurrent: avoidImmediateArtifactRespawnRepeat))
+            {
+                return;
+            }
+        }
+    }
+
+    private bool AddRandomArtifact(bool forceDifferentFromCurrent)
     {
         if (artifactSpawnCandidates == null || artifactSpawnCandidates.Length == 0)
         {
-            currentArtifactIndex = -1;
-            currentArtifactPosition = Vector2.zero;
-            return currentArtifactPosition;
+            return false;
         }
 
-        int nextIndex = 0;
-        if (artifactSpawnCandidates.Length == 1)
+        if (activeArtifactIndices.Count >= artifactSpawnCandidates.Length)
         {
-            nextIndex = 0;
+            return false;
         }
-        else
+
+        int nextIndex = SelectArtifactIndex(forceDifferentFromCurrent);
+        if (nextIndex < 0)
         {
-            nextIndex = Random.Range(0, artifactSpawnCandidates.Length);
-            if (forceDifferentFromCurrent && currentArtifactIndex >= 0 && nextIndex == currentArtifactIndex)
-            {
-                nextIndex = (nextIndex + 1 + Random.Range(0, artifactSpawnCandidates.Length - 1)) % artifactSpawnCandidates.Length;
-            }
+            return false;
         }
 
         currentArtifactIndex = nextIndex;
         currentArtifactPosition = artifactSpawnCandidates[currentArtifactIndex];
-        return currentArtifactPosition;
+        currentArtifactKind = SelectArtifactKind();
+        activeArtifactIndices.Add(currentArtifactIndex);
+        activeArtifacts.Add(new ArtifactInstance(currentArtifactPosition, currentArtifactKind));
+        return true;
+    }
+
+    private ArtifactKind SelectArtifactKind()
+    {
+        if (artifactCatalog != null && artifactCatalog.TryGetRandomKindByWeight(out ArtifactKind weightedKind))
+        {
+            return weightedKind;
+        }
+
+        return artifactKinds[Random.Range(0, artifactKinds.Length)];
+    }
+
+    private int SelectArtifactIndex(bool forceDifferentFromCurrent)
+    {
+        if (artifactSpawnCandidates.Length == 1)
+        {
+            return activeArtifactIndices.Contains(0) ? -1 : 0;
+        }
+
+        int startIndex = Random.Range(0, artifactSpawnCandidates.Length);
+        for (int offset = 0; offset < artifactSpawnCandidates.Length; offset++)
+        {
+            int nextIndex = (startIndex + offset) % artifactSpawnCandidates.Length;
+            if (activeArtifactIndices.Contains(nextIndex))
+            {
+                continue;
+            }
+
+            if (forceDifferentFromCurrent && currentArtifactIndex >= 0 && nextIndex == currentArtifactIndex)
+            {
+                continue;
+            }
+
+            return nextIndex;
+        }
+
+        for (int index = 0; index < artifactSpawnCandidates.Length; index++)
+        {
+            if (!activeArtifactIndices.Contains(index))
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 }

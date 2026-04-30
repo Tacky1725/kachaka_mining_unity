@@ -169,6 +169,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   initialTimeSeconds: 30
   excavationDistanceThresholdMeters: 0.3
+  bombSpinDurationSeconds: 1
+  bombSpinDegreesPerSecond: 360
   mapView: {fileID: 300002}
   scoreView: {fileID: 410004}
   timerView: {fileID: 420004}
@@ -181,6 +183,7 @@ MonoBehaviour:
   dummyDataProvider: {fileID: 100003}
   rosDataProvider: {fileID: 600004}
   gameRosPublisher: {fileID: 0}
+  artifactCatalog: {fileID: 11400000, guid: 5afaa34e0a104ac6a04ab5d1c24a7d1e, type: 2}
 --- !u!114 &100003
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -194,11 +197,25 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   artifactSpawnCandidates:
-  - {x: 2, y: 0}
+  - {x: 1, y: 0}
+  - {x: 1, y: 0.5}
+  - {x: 1, y: 1}
+  - {x: 1, y: 1.5}
   - {x: 1, y: 2}
-  - {x: 3, y: 1}
-  - {x: 2, y: 3}
+  - {x: 1.5, y: 0.25}
+  - {x: 1.5, y: 0.75}
+  - {x: 1.5, y: 1.25}
+  - {x: 1.5, y: 1.75}
+  - {x: 2, y: 0}
+  - {x: 2, y: 0.5}
+  - {x: 2, y: 1}
+  - {x: 2, y: 1.5}
+  - {x: 2, y: 2}
+  artifactKinds: 000000000100000002000000
+  artifactCatalog: {fileID: 11400000, guid: 5afaa34e0a104ac6a04ab5d1c24a7d1e, type: 2}
   avoidImmediateArtifactRespawnRepeat: 1
+  activeArtifactCandidatePercent: 50
+  maxActiveArtifactCount: 5
   robotPathCenter: {x: 0, y: 0}
   robotPathRadius: {x: 1.1, y: 0.7}
   robotPathSpeed: 0.6
@@ -364,9 +381,13 @@ MonoBehaviour:
   radarSweep: {fileID: 0}
   artifactMarker: {fileID: 0}
   robotBeaconPrefab: {fileID: 2726253987078505584, guid: 55ed5067f0ee4fae986cb9214d3091c6, type: 3}
-  artifactMarkerPrefab: {fileID: 6481349942245988202, guid: b740fd2d676de274a93c8bf320d7839e, type: 3}
+  artifactMarkerPrefab: {fileID: 6481349942245988202, guid: dbdc2648619b0414281274f7a3c61c89, type: 3}
+  coalMarkerPrefab: {fileID: 6481349942245988202, guid: bab2de03e9caf5f449710e2a71cdeb8d, type: 3}
+  stoneMarkerPrefab: {fileID: 6481349942245988202, guid: 98f03e2b8718db74b958e03cbd616b5a, type: 3}
+  bombMarkerPrefab: {fileID: 6481349942245988202, guid: bace23685fb621b40a2105d3ac8aad07, type: 3}
   originMarkerPrefab: {fileID: 5805676892767068435, guid: 51ebc55a680600b4f91b451244a9ea14, type: 3}
   alignArtifactMarkerToCamera: 1
+  artifactCatalog: {fileID: 11400000, guid: 5afaa34e0a104ac6a04ab5d1c24a7d1e, type: 2}
   limitArtifactVisibilityToRadar: 1
 --- !u!1 &310000
 GameObject:

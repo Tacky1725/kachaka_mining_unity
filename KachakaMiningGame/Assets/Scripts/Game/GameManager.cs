@@ -14,6 +14,8 @@ public class GameManager : MonoBehaviour
     [Header("Game Settings")]
     [SerializeField] private float initialTimeSeconds = 90f;
     [SerializeField] private float excavationDistanceThresholdMeters = 0.3f;
+    [SerializeField] private float bombSpinDurationSeconds = 2f;
+    [SerializeField] private float bombSpinDegreesPerSecond = 720f;
 
     [Header("Scene References")]
     [SerializeField] private MapViewController mapView;
@@ -29,13 +31,23 @@ public class GameManager : MonoBehaviour
     [SerializeField] private RosGameDataProvider rosDataProvider;
     [SerializeField] private GameRosPublisher gameRosPublisher;
 
+    [Header("Artifact Definitions")]
+    [SerializeField] private ArtifactCatalog artifactCatalog;
+
     private int score;
     private float timeRemaining;
     private bool timerRunning;
     private float elapsedTime;
     private Vector2 currentRobotPosition;
+    private float currentRobotHeading;
     private Vector2 currentArtifactPosition;
+    private ArtifactKind currentArtifactKind = ArtifactKind.Coal;
     private bool artifactAvailable;
+    private readonly List<ArtifactInstance> currentArtifacts = new List<ArtifactInstance>();
+    private bool robotSpinActive;
+    private float robotSpinStartedAt;
+    private Vector2 robotSpinPosition;
+    private float robotSpinStartHeading;
     private int lastPublishedTimeSeconds = -1;
     private GameSessionState currentState = GameSessionState.Waiting;
     private ScoreHistoryRepository scoreHistoryRepository;
@@ -75,20 +87,27 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        bool appliedLiveRobotPose = false;
-        if (rosDataProvider != null && rosDataProvider.TryGetLiveRobotPose(out Vector2 liveRobotPosition, out float liveRobotHeading))
+        if (robotSpinActive)
         {
-            // ROS から実データが来ている間はそちらを優先して使う
-            UpdateRobotPose(liveRobotPosition, liveRobotHeading);
-            appliedLiveRobotPose = true;
+            UpdateRobotBombSpin();
         }
-
-        if (dummyDataProvider != null && !appliedLiveRobotPose)
+        else
         {
-            // ROS 未接続時でも確認できるよう、ダミー移動へフォールバック
-            Vector2 robotPosition = dummyDataProvider.GetRobotPosition(elapsedTime);
-            float robotHeading = dummyDataProvider.GetRobotHeadingDegrees(elapsedTime);
-            UpdateRobotPose(robotPosition, robotHeading);
+            bool appliedLiveRobotPose = false;
+            if (rosDataProvider != null && rosDataProvider.TryGetLiveRobotPose(out Vector2 liveRobotPosition, out float liveRobotHeading))
+            {
+                // ROS から実データが来ている間はそちらを優先して使う
+                UpdateRobotPose(liveRobotPosition, liveRobotHeading);
+                appliedLiveRobotPose = true;
+            }
+
+            if (dummyDataProvider != null && !appliedLiveRobotPose)
+            {
+                // ROS 未接続時でも確認できるよう、ダミー移動へフォールバック
+                Vector2 robotPosition = dummyDataProvider.GetRobotPosition(elapsedTime);
+                float robotHeading = dummyDataProvider.GetRobotHeadingDegrees(elapsedTime);
+                UpdateRobotPose(robotPosition, robotHeading);
+            }
         }
 
         TryHandleExcavation();
@@ -104,16 +123,17 @@ public class GameManager : MonoBehaviour
         elapsedTime = 0f;
         currentState = GameSessionState.Playing;
         lastPublishedTimeSeconds = -1;
+        SetRobotSpinActive(false);
 
-        Vector2 artifactPosition = dummyDataProvider != null
-            ? dummyDataProvider.ResetArtifactSpawn()
-            : Vector2.zero;
+        IReadOnlyList<ArtifactInstance> artifacts = dummyDataProvider != null
+            ? dummyDataProvider.ResetArtifactSpawns()
+            : null;
 
         // HUD を初期化し、最初の化石を配置して、オーバーレイ画面からプレイ状態へ切り替える
         UpdateScoreDisplay(score);
         UpdateTimerDisplay(timeRemaining);
         UpdateStateDisplay("Playing");
-        UpdateArtifactState(artifactPosition, dummyDataProvider != null);
+        UpdateArtifactState(artifacts, dummyDataProvider != null);
         SetStartScreenVisible(false);
         SetFinishScreenVisible(false);
         PublishScore();
@@ -131,24 +151,24 @@ public class GameManager : MonoBehaviour
             popupController.ShowScorePopup(amount);
         }
 
-        PlayExcavationSuccessSound();
         PublishScore();
     }
 
     // 採掘成功後に次の化石出現位置へ再配置
     public void RespawnArtifact()
     {
-        Vector2 artifactPosition = dummyDataProvider != null
-            ? dummyDataProvider.RespawnArtifact()
-            : Vector2.zero;
+        IReadOnlyList<ArtifactInstance> artifacts = dummyDataProvider != null
+            ? dummyDataProvider.RespawnArtifacts()
+            : null;
 
-        UpdateArtifactState(artifactPosition, dummyDataProvider != null);
+        UpdateArtifactState(artifacts, dummyDataProvider != null);
     }
 
     // ロボット位置の更新
     private void UpdateRobotPose(Vector2 robotPosition, float robotHeading)
     {
         currentRobotPosition = robotPosition;
+        currentRobotHeading = robotHeading;
         if (mapView != null)
         {
             mapView.UpdateRobot(robotPosition, robotHeading);
@@ -158,32 +178,176 @@ public class GameManager : MonoBehaviour
     // 採掘成功判定
     private void TryHandleExcavation()
     {
-        if (currentState != GameSessionState.Playing || !timerRunning || !artifactAvailable)
+        if (currentState != GameSessionState.Playing || !timerRunning || !artifactAvailable || robotSpinActive)
         {
             return;
         }
 
-        float distanceToArtifact = Vector2.Distance(currentRobotPosition, currentArtifactPosition);
-        if (distanceToArtifact > excavationDistanceThresholdMeters)
+        int collectedArtifactIndex = FindCollectedArtifactIndex();
+        if (collectedArtifactIndex < 0)
         {
             return;
         }
 
         // 同じ化石で多重加点しないよう、成功時点でいったん非表示にしてからスコア加算と再配置
-        artifactAvailable = false;
-        mapView.UpdateArtifact(currentArtifactPosition, false);
-        AddScore(1);
-        RespawnArtifact();
+        ArtifactKind collectedArtifactKind = currentArtifacts[collectedArtifactIndex].Kind;
+        ApplyArtifactEffect(collectedArtifactKind);
+        IReadOnlyList<ArtifactInstance> artifacts = dummyDataProvider != null
+            ? dummyDataProvider.CollectArtifactAt(collectedArtifactIndex)
+            : null;
+        UpdateArtifactState(artifacts, dummyDataProvider != null);
+    }
+
+    private int FindCollectedArtifactIndex()
+    {
+        for (int i = 0; i < currentArtifacts.Count; i++)
+        {
+            float distanceToArtifact = Vector2.Distance(currentRobotPosition, currentArtifacts[i].Position);
+            if (distanceToArtifact <= excavationDistanceThresholdMeters)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private void ApplyArtifactEffect(ArtifactKind artifactKind)
+    {
+        ArtifactDefinition definition = GetArtifactDefinition(artifactKind);
+        int scoreAmount = definition != null ? definition.ScoreAmount : GetFallbackScoreAmount(artifactKind);
+        if (scoreAmount > 0)
+        {
+            AddScore(scoreAmount);
+        }
+
+        PlayArtifactSound(definition);
+
+        bool triggersSpin = definition != null ? definition.TriggersSpin : artifactKind == ArtifactKind.Bomb;
+        if (triggersSpin)
+        {
+            StartRobotBombSpin();
+        }
+    }
+
+    private ArtifactDefinition GetArtifactDefinition(ArtifactKind artifactKind)
+    {
+        return artifactCatalog != null ? artifactCatalog.GetDefinition(artifactKind) : null;
+    }
+
+    private int GetFallbackScoreAmount(ArtifactKind artifactKind)
+    {
+        switch (artifactKind)
+        {
+            case ArtifactKind.Stone:
+                return 3;
+            case ArtifactKind.Bomb:
+                return 0;
+            case ArtifactKind.Coal:
+            default:
+                return 1;
+        }
+    }
+
+    private void PlayArtifactSound(ArtifactDefinition definition)
+    {
+        if (excavationAudioSource == null)
+        {
+            return;
+        }
+
+        AudioClip collectSound = definition != null && definition.CollectSound != null
+            ? definition.CollectSound
+            : excavationSuccessClip;
+        if (collectSound == null)
+        {
+            return;
+        }
+
+        excavationAudioSource.PlayOneShot(collectSound);
     }
 
     // 化石の内部状態と画面表示状態を同期
     private void UpdateArtifactState(Vector2 artifactPosition, bool visible)
     {
+        UpdateArtifactState(artifactPosition, currentArtifactKind, visible);
+    }
+
+    private void UpdateArtifactState(Vector2 artifactPosition, ArtifactKind artifactKind, bool visible)
+    {
         currentArtifactPosition = artifactPosition;
+        currentArtifactKind = artifactKind;
+        currentArtifacts.Clear();
+        if (visible)
+        {
+            currentArtifacts.Add(new ArtifactInstance(artifactPosition, artifactKind));
+        }
+
         artifactAvailable = visible;
         if (mapView != null)
         {
-            mapView.UpdateArtifact(artifactPosition, visible);
+            mapView.UpdateArtifact(artifactPosition, visible, artifactKind);
+        }
+    }
+
+    private void UpdateArtifactState(IReadOnlyList<ArtifactInstance> artifacts, bool visible)
+    {
+        currentArtifacts.Clear();
+        if (visible && artifacts != null)
+        {
+            for (int i = 0; i < artifacts.Count; i++)
+            {
+                currentArtifacts.Add(artifacts[i]);
+            }
+        }
+
+        artifactAvailable = currentArtifacts.Count > 0;
+        if (artifactAvailable)
+        {
+            currentArtifactPosition = currentArtifacts[0].Position;
+            currentArtifactKind = currentArtifacts[0].Kind;
+        }
+
+        if (mapView != null)
+        {
+            mapView.UpdateArtifacts(currentArtifacts, visible);
+        }
+    }
+
+    private void StartRobotBombSpin()
+    {
+        PublishSpinTrigger();
+        SetRobotSpinActive(true);
+        robotSpinStartedAt = Time.time;
+        robotSpinPosition = currentRobotPosition;
+        robotSpinStartHeading = currentRobotHeading;
+        UpdateRobotBombSpin();
+    }
+
+    private void UpdateRobotBombSpin()
+    {
+        float elapsedSpinTime = Time.time - robotSpinStartedAt;
+        if (elapsedSpinTime >= bombSpinDurationSeconds)
+        {
+            SetRobotSpinActive(false);
+            UpdateRobotPose(robotSpinPosition, robotSpinStartHeading + bombSpinDurationSeconds * bombSpinDegreesPerSecond);
+            return;
+        }
+
+        UpdateRobotPose(robotSpinPosition, robotSpinStartHeading + elapsedSpinTime * bombSpinDegreesPerSecond);
+    }
+
+    private void SetRobotSpinActive(bool active)
+    {
+        robotSpinActive = active;
+        if (rosDataProvider != null)
+        {
+            rosDataProvider.SetRobotPoseUpdatesEnabled(!active);
+        }
+
+        if (mapView != null)
+        {
+            mapView.SetRadarVisible(!active);
         }
     }
 
@@ -437,6 +601,7 @@ public class GameManager : MonoBehaviour
         timeRemaining = initialTimeSeconds;
         currentState = GameSessionState.Waiting;
         lastPublishedTimeSeconds = -1;
+        SetRobotSpinActive(false);
 
         UpdateScoreDisplay(score);
         UpdateTimerDisplay(timeRemaining);
@@ -459,6 +624,7 @@ public class GameManager : MonoBehaviour
 
         timerRunning = false;
         currentState = GameSessionState.Finished;
+        SetRobotSpinActive(false);
         UpdateStateDisplay("Finished");
         UpdateArtifactState(currentArtifactPosition, false);
 
@@ -541,6 +707,14 @@ public class GameManager : MonoBehaviour
         gameRosPublisher.PublishStart();
     }
 
+    private void PublishSpinTrigger()
+    {
+        if (gameRosPublisher != null)
+        {
+            gameRosPublisher.PublishSpinTrigger();
+        }
+    }
+
     // タイマー終了時に finished 状態をパブリッシュ
     private void PublishFinishedState()
     {
@@ -581,16 +755,5 @@ public class GameManager : MonoBehaviour
 
         lastPublishedTimeSeconds = currentTimeSeconds;
         gameRosPublisher.PublishTimeRemaining(currentTimeSeconds);
-    }
-
-    // 採掘成功音再生
-    private void PlayExcavationSuccessSound()
-    {
-        if (excavationAudioSource == null || excavationSuccessClip == null)
-        {
-            return;
-        }
-
-        excavationAudioSource.PlayOneShot(excavationSuccessClip);
     }
 }

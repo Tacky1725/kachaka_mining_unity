@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using RosMessageTypes.Nav;
 using extension;
@@ -39,8 +40,14 @@ public class MapViewController : MonoBehaviour
     [SerializeField] private ArtifactMarkerController artifactMarker;
     [SerializeField] private GameObject robotBeaconPrefab;
     [SerializeField] private GameObject artifactMarkerPrefab;
+    [SerializeField] private GameObject coalMarkerPrefab;
+    [SerializeField] private GameObject stoneMarkerPrefab;
+    [SerializeField] private GameObject bombMarkerPrefab;
     [SerializeField] private GameObject originMarkerPrefab;
     [SerializeField] private bool alignArtifactMarkerToCamera = true;
+
+    [Header("Artifact Definitions")]
+    [SerializeField] private ArtifactCatalog artifactCatalog;
 
     [Header("Radar Visibility")]
     [SerializeField] private bool limitArtifactVisibilityToRadar = true;
@@ -57,7 +64,12 @@ public class MapViewController : MonoBehaviour
     private Transform gridRoot;
     private bool initialized;
     private Vector2 currentArtifactMapPosition;
+    private ArtifactKind currentArtifactKind = ArtifactKind.Coal;
+    private ArtifactKind currentArtifactMarkerKind = ArtifactKind.Coal;
     private bool artifactExists;
+    private readonly List<ArtifactInstance> currentArtifacts = new List<ArtifactInstance>();
+    private readonly List<ArtifactMarkerController> artifactMarkers = new List<ArtifactMarkerController>();
+    private readonly List<ArtifactKind> artifactMarkerKinds = new List<ArtifactKind>();
     private Vector2Int lastGridDimensions;
     private float lastGridResolution;
 
@@ -134,11 +146,67 @@ public class MapViewController : MonoBehaviour
         RefreshArtifactVisibility();
     }
 
+    public void SetRadarVisible(bool visible)
+    {
+        if (radarSweep == null)
+        {
+            radarSweep = robotMarker != null ? robotMarker.GetComponent<RadarSweepController>() : null;
+        }
+
+        if (radarSweep != null)
+        {
+            radarSweep.SetRadarVisible(visible);
+        }
+
+        RefreshArtifactVisibility();
+    }
+
     public void UpdateArtifact(Vector2 mapPositionMeters, bool visible)
     {
+        UpdateArtifact(mapPositionMeters, visible, ArtifactKind.Coal);
+    }
+
+    public void UpdateArtifact(Vector2 mapPositionMeters, bool visible, ArtifactKind artifactKind)
+    {
         currentArtifactMapPosition = mapPositionMeters;
+        currentArtifactKind = artifactKind;
         artifactExists = visible;
-        artifactMarker.SetPosition(MapToLocalPosition(mapPositionMeters));
+        currentArtifacts.Clear();
+        if (visible)
+        {
+            currentArtifacts.Add(new ArtifactInstance(mapPositionMeters, artifactKind));
+        }
+
+        EnsureArtifactMarkerCount(currentArtifacts.Count);
+        if (currentArtifacts.Count > 0)
+        {
+            ArtifactMarkerController marker = EnsureArtifactMarkerAt(0, artifactKind);
+            marker.SetPosition(MapToLocalPosition(mapPositionMeters));
+        }
+
+        RefreshArtifactVisibility();
+    }
+
+    public void UpdateArtifacts(IReadOnlyList<ArtifactInstance> artifacts, bool visible)
+    {
+        currentArtifacts.Clear();
+        if (visible && artifacts != null)
+        {
+            for (int i = 0; i < artifacts.Count; i++)
+            {
+                currentArtifacts.Add(artifacts[i]);
+            }
+        }
+
+        artifactExists = visible && currentArtifacts.Count > 0;
+        EnsureArtifactMarkerCount(currentArtifacts.Count);
+        for (int i = 0; i < currentArtifacts.Count; i++)
+        {
+            ArtifactInstance artifact = currentArtifacts[i];
+            ArtifactMarkerController marker = EnsureArtifactMarkerAt(i, artifact.Kind);
+            marker.SetPosition(MapToLocalPosition(artifact.Position));
+        }
+
         RefreshArtifactVisibility();
     }
 
@@ -347,25 +415,108 @@ public class MapViewController : MonoBehaviour
 
     private ArtifactMarkerController EnsureArtifactMarker()
     {
-        Transform existing = markerRoot.Find("ArtifactMarker");
-        if (artifactMarkerPrefab == null && existing != null)
+        return EnsureArtifactMarker(currentArtifactKind);
+    }
+
+    private ArtifactMarkerController EnsureArtifactMarker(ArtifactKind artifactKind)
+    {
+        return EnsureArtifactMarkerAt(0, artifactKind);
+    }
+
+    private void EnsureArtifactMarkerCount(int markerCount)
+    {
+        while (artifactMarkers.Count > markerCount)
+        {
+            int lastIndex = artifactMarkers.Count - 1;
+            ArtifactMarkerController marker = artifactMarkers[lastIndex];
+            if (marker != null)
+            {
+                Destroy(marker.gameObject);
+            }
+
+            artifactMarkers.RemoveAt(lastIndex);
+            artifactMarkerKinds.RemoveAt(lastIndex);
+        }
+    }
+
+    private ArtifactMarkerController EnsureArtifactMarkerAt(int markerIndex, ArtifactKind artifactKind)
+    {
+        string markerName = GetArtifactMarkerName(markerIndex);
+        while (artifactMarkers.Count <= markerIndex)
+        {
+            artifactMarkers.Add(null);
+            artifactMarkerKinds.Add(ArtifactKind.Coal);
+        }
+
+        Transform existing = markerRoot.Find(markerName);
+        GameObject markerPrefab = GetArtifactMarkerPrefab(artifactKind);
+        if (markerPrefab == null && existing != null)
         {
             ArtifactMarkerController existingController = existing.GetComponent<ArtifactMarkerController>();
-            return existingController != null ? existingController : existing.gameObject.AddComponent<ArtifactMarkerController>();
+            ArtifactMarkerController existingMarker = existingController != null ? existingController : existing.gameObject.AddComponent<ArtifactMarkerController>();
+            artifactMarkers[markerIndex] = existingMarker;
+            artifactMarkerKinds[markerIndex] = artifactKind;
+            artifactMarker = markerIndex == 0 ? existingMarker : artifactMarker;
+            currentArtifactMarkerKind = markerIndex == 0 ? artifactKind : currentArtifactMarkerKind;
+            return existingMarker;
         }
 
-        if (artifactMarkerPrefab != null && existing != null)
+        if (artifactMarkers[markerIndex] != null && existing != null && artifactMarkerKinds[markerIndex] == artifactKind)
         {
-            existing.gameObject.SetActive(false);
+            return artifactMarkers[markerIndex];
         }
 
-        GameObject markerObject = artifactMarkerPrefab != null ? Instantiate(artifactMarkerPrefab, markerRoot) : new GameObject("ArtifactMarker");
-        markerObject.name = "ArtifactMarker";
+        if (markerPrefab != null && existing != null)
+        {
+            Destroy(existing.gameObject);
+        }
+
+        GameObject markerObject = markerPrefab != null ? Instantiate(markerPrefab, markerRoot) : new GameObject("ArtifactMarker");
+        markerObject.name = markerName;
         markerObject.transform.SetParent(markerRoot, false);
         AlignMarkerToCamera(markerObject.transform);
 
         ArtifactMarkerController controller = markerObject.GetComponent<ArtifactMarkerController>();
-        return controller != null ? controller : markerObject.AddComponent<ArtifactMarkerController>();
+        ArtifactMarkerController createdMarker = controller != null ? controller : markerObject.AddComponent<ArtifactMarkerController>();
+        artifactMarkers[markerIndex] = createdMarker;
+        artifactMarkerKinds[markerIndex] = artifactKind;
+        if (markerIndex == 0)
+        {
+            artifactMarker = createdMarker;
+            currentArtifactMarkerKind = artifactKind;
+        }
+
+        return createdMarker;
+    }
+
+    private string GetArtifactMarkerName(int markerIndex)
+    {
+        return markerIndex == 0 ? "ArtifactMarker" : $"ArtifactMarker{markerIndex}";
+    }
+
+    private GameObject GetArtifactMarkerPrefab(ArtifactKind artifactKind)
+    {
+        ArtifactDefinition definition = GetArtifactDefinition(artifactKind);
+        if (definition != null && definition.MarkerPrefab != null)
+        {
+            return definition.MarkerPrefab;
+        }
+
+        switch (artifactKind)
+        {
+            case ArtifactKind.Stone:
+                return stoneMarkerPrefab != null ? stoneMarkerPrefab : artifactMarkerPrefab;
+            case ArtifactKind.Bomb:
+                return bombMarkerPrefab != null ? bombMarkerPrefab : artifactMarkerPrefab;
+            case ArtifactKind.Coal:
+            default:
+                return coalMarkerPrefab != null ? coalMarkerPrefab : artifactMarkerPrefab;
+        }
+    }
+
+    private ArtifactDefinition GetArtifactDefinition(ArtifactKind artifactKind)
+    {
+        return artifactCatalog != null ? artifactCatalog.GetDefinition(artifactKind) : null;
     }
 
     private void AlignMarkerToCamera(Transform markerTransform)
@@ -403,21 +554,35 @@ public class MapViewController : MonoBehaviour
 
     private void RefreshArtifactVisibility()
     {
-        if (!initialized || artifactMarker == null)
+        if (!initialized)
         {
             return;
         }
 
-        bool shouldShowArtifact = artifactExists;
-        if (shouldShowArtifact && limitArtifactVisibilityToRadar)
+        for (int i = 0; i < artifactMarkers.Count; i++)
         {
-            shouldShowArtifact = IsArtifactInsideRadar();
-        }
+            ArtifactMarkerController marker = artifactMarkers[i];
+            if (marker == null)
+            {
+                continue;
+            }
 
-        artifactMarker.SetVisible(shouldShowArtifact);
+            bool shouldShowArtifact = artifactExists && i < currentArtifacts.Count;
+            if (shouldShowArtifact && limitArtifactVisibilityToRadar)
+            {
+                shouldShowArtifact = IsArtifactInsideRadar(currentArtifacts[i].Position);
+            }
+
+            marker.SetVisible(shouldShowArtifact);
+        }
     }
 
     private bool IsArtifactInsideRadar()
+    {
+        return IsArtifactInsideRadar(currentArtifactMapPosition);
+    }
+
+    private bool IsArtifactInsideRadar(Vector2 artifactMapPosition)
     {
         if (radarSweep == null)
         {
@@ -429,7 +594,7 @@ public class MapViewController : MonoBehaviour
             return false;
         }
 
-        Vector3 artifactWorldPosition = transform.TransformPoint(MapToLocalPosition(currentArtifactMapPosition));
+        Vector3 artifactWorldPosition = transform.TransformPoint(MapToLocalPosition(artifactMapPosition));
         return radarSweep.ContainsWorldPoint(artifactWorldPosition);
     }
 

@@ -8,6 +8,7 @@ public class GameRosPublisher : MonoBehaviour
     [SerializeField] private string scoreTopicName = "/game/score";
     [SerializeField] private string timeRemainingTopicName = "/game/time_remaining";
     [SerializeField] private string startTopicName = "/game/start";
+    [SerializeField] private string spinTriggerTopicName = "/game/spin_trigger";
 
     private ROSConnection rosConnection;
     private bool initialized;
@@ -23,7 +24,8 @@ public class GameRosPublisher : MonoBehaviour
         rosConnection.RegisterPublisher<StringMsg>(stateTopicName);
         rosConnection.RegisterPublisher<Int32Msg>(scoreTopicName);
         rosConnection.RegisterPublisher<Int32Msg>(timeRemainingTopicName);
-        rosConnection.RegisterPublisher<EmptyMsg>(startTopicName);
+        rosConnection.RegisterPublisher<StringMsg>(startTopicName);
+        rosConnection.RegisterPublisher<StringMsg>(spinTriggerTopicName);
         initialized = true;
     }
 
@@ -64,6 +66,16 @@ public class GameRosPublisher : MonoBehaviour
             return;
         }
 
-        rosConnection.Publish(startTopicName, new EmptyMsg());
+        rosConnection.Publish(startTopicName, new StringMsg("start"));
+    }
+
+    public void PublishSpinTrigger()
+    {
+        if (!initialized)
+        {
+            return;
+        }
+
+        rosConnection.Publish(spinTriggerTopicName, new StringMsg("spin"));
     }
 }

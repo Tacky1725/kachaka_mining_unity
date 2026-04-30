@@ -10,6 +10,7 @@ public class RosGameDataProvider : MonoBehaviour
     private MapViewController mapView;
     private float lastAppliedMapAt = -1f;
     private float lastRobotPoseAt = -1f;
+    private bool robotPoseUpdatesEnabled = true;
 
     public bool HasLiveRobotPose
     {
@@ -47,6 +48,11 @@ public class RosGameDataProvider : MonoBehaviour
         }
     }
 
+    public void SetRobotPoseUpdatesEnabled(bool enabled)
+    {
+        robotPoseUpdatesEnabled = enabled;
+    }
+
     private void Update()
     {
         if (mapView == null)
@@ -76,6 +82,11 @@ public class RosGameDataProvider : MonoBehaviour
 
     private void ApplyRobotPoseIfAvailable()
     {
+        if (!robotPoseUpdatesEnabled)
+        {
+            return;
+        }
+
         if (robotPoseSubscriber == null || !robotPoseSubscriber.TryGetLatestPose(out Vector2 position, out float headingDegrees, out float receivedAt))
         {
             return;

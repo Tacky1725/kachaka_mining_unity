@@ -62,7 +62,7 @@ public class RadarSweepController : MonoBehaviour
 
     public bool ContainsWorldPoint(Vector3 worldPoint)
     {
-        if (radarTransform == null)
+        if (radarObject == null || !radarObject.activeSelf || radarTransform == null)
         {
             return false;
         }
@@ -83,6 +83,15 @@ public class RadarSweepController : MonoBehaviour
         Vector2 radarForward = radarTransform.right;
         float angleToTarget = Vector2.Angle(radarForward, toTarget);
         return angleToTarget <= angleDegrees * 0.5f;
+    }
+
+    public void SetRadarVisible(bool visible)
+    {
+        EnsureRadarObject();
+        if (radarObject != null)
+        {
+            radarObject.SetActive(visible);
+        }
     }
 
     private void ResolveReferences()
