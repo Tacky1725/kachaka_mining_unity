@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kachaka.JoyconLib", "Kachaka.JoyconLib.csproj", "{F6BEF840-7B9C-2841-784C-B6BEB29021A8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kachaka.JoyconInput", "Kachaka.JoyconInput.csproj", "{9FCCDFDF-1250-65A8-F530-468844A14099}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Assembly-CSharp", "Assembly-CSharp.csproj", "{F22DA297-F499-8877-C6AA-205B7B5DFF38}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kachaka.JoyconInput", "Kachaka.JoyconInput.csproj", "{9FCCDFDF-1250-65A8-F530-468844A14099}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,14 +17,14 @@ Global
 		{F6BEF840-7B9C-2841-784C-B6BEB29021A8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F6BEF840-7B9C-2841-784C-B6BEB29021A8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F6BEF840-7B9C-2841-784C-B6BEB29021A8}.Release|Any CPU.Build.0 = Release|Any CPU
-		{9FCCDFDF-1250-65A8-F530-468844A14099}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9FCCDFDF-1250-65A8-F530-468844A14099}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9FCCDFDF-1250-65A8-F530-468844A14099}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9FCCDFDF-1250-65A8-F530-468844A14099}.Release|Any CPU.Build.0 = Release|Any CPU
 		{F22DA297-F499-8877-C6AA-205B7B5DFF38}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{F22DA297-F499-8877-C6AA-205B7B5DFF38}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F22DA297-F499-8877-C6AA-205B7B5DFF38}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F22DA297-F499-8877-C6AA-205B7B5DFF38}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9FCCDFDF-1250-65A8-F530-468844A14099}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9FCCDFDF-1250-65A8-F530-468844A14099}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9FCCDFDF-1250-65A8-F530-468844A14099}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9FCCDFDF-1250-65A8-F530-468844A14099}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

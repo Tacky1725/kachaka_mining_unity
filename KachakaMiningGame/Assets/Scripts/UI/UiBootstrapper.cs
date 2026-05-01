@@ -11,7 +11,8 @@ public static class UiBootstrapper
         out GameStateView stateView,
         out PopupController popupController,
         out StartScreenView startScreenView,
-        out FinishScreenView finishScreenView
+        out FinishScreenView finishScreenView,
+        out PauseMenuView pauseMenuView
     )
     {
         Canvas canvas = Object.FindObjectOfType<Canvas>();
@@ -56,6 +57,7 @@ public static class UiBootstrapper
         popupController = EnsurePopup(canvasTransform);
         startScreenView = EnsureStartScreen(canvasTransform);
         finishScreenView = EnsureFinishScreen(canvasTransform);
+        pauseMenuView = EnsurePauseMenu(canvasTransform);
     }
 
     private static T EnsureTmpTextObject<T>(
@@ -256,6 +258,53 @@ public static class UiBootstrapper
         );
         FinishScreenView view = screenObject.GetComponent<FinishScreenView>();
         return view != null ? view : screenObject.AddComponent<FinishScreenView>();
+    }
+
+    private static PauseMenuView EnsurePauseMenu(Transform parent)
+    {
+        Transform existing = parent.Find("PauseMenu");
+        if (existing != null)
+        {
+            PauseMenuView existingView = existing.GetComponent<PauseMenuView>();
+            return existingView != null
+                ? existingView
+                : existing.gameObject.AddComponent<PauseMenuView>();
+        }
+
+        GameObject screenObject = EnsurePanel(
+            parent,
+            "PauseMenu",
+            new Color(0.03f, 0.04f, 0.05f, 0.86f)
+        );
+
+        Transform contentRoot = EnsureVerticalContentRoot(
+            screenObject.transform,
+            "PauseMenuContent",
+            new Vector2(520f, 320f)
+        );
+        EnsureLayoutText(
+            contentRoot,
+            "PauseMessageText",
+            "Paused",
+            42,
+            new Vector2(480f, 72f),
+            TextAnchor.MiddleCenter
+        );
+        EnsureLayoutButton(
+            contentRoot,
+            "BackButton",
+            "Back",
+            new Vector2(280f, 58f)
+        );
+        EnsureLayoutButton(
+            contentRoot,
+            "QuitGameButton",
+            "Quit Game",
+            new Vector2(280f, 58f)
+        );
+
+        PauseMenuView view = screenObject.GetComponent<PauseMenuView>();
+        return view != null ? view : screenObject.AddComponent<PauseMenuView>();
     }
 
     private static GameObject EnsurePanel(
