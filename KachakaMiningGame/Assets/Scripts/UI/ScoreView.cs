@@ -15,7 +15,6 @@ public class ScoreView : MonoBehaviour
 
     public void UpdateScore(int score)
     {
-        string pointsLabel = score == 1 ? "1 point" : $"{score} points";
-        scoreText.text = $"Score: {pointsLabel}";
+        scoreText.text = $"Score: {score}";
     }
 }

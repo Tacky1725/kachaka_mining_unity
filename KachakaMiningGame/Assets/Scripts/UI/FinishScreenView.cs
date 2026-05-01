@@ -10,15 +10,35 @@ public class FinishScreenView : MonoBehaviour
     private const float DefaultTableWidth = 720f;
     private const float RowHeight = 32f;
 
-    [SerializeField] private Text currentScoreText;
-    [SerializeField] private Transform historyTableRoot;
-    [SerializeField] private TMP_FontAsset historyTableFont;
-    [SerializeField, Min(1f)] private float historyTableFontSize = 24f;
-    [SerializeField, Min(0f)] private float historyRankColumnWidth = 160f;
-    [SerializeField, Min(0f)] private float historyScoreColumnWidth = 200f;
-    [SerializeField, Min(0f)] private float historyPlayedAtColumnWidth = 416f;
-    [SerializeField, Min(0f)] private float historyColumnGap = 12f;
-    [SerializeField] private Button backButton;
+    [SerializeField]
+    private TMP_Text currentScoreText;
+
+    [SerializeField]
+    private Transform historyTableRoot;
+
+    [SerializeField]
+    private TMP_FontAsset historyTableFont;
+
+    [SerializeField, Min(1f)]
+    private float historyTableFontSize = 24f;
+
+    [SerializeField, Min(0f)]
+    private float historyRankColumnWidth = 160f;
+
+    [SerializeField, Min(0f)]
+    private float historyScoreColumnWidth = 200f;
+
+    [SerializeField, Min(0f)]
+    private float historyPlayedAtColumnWidth = 416f;
+
+    [SerializeField, Min(0f)]
+    private float historyColumnGap = 12f;
+
+    [SerializeField]
+    private Color currentEntryTextColor = Color.yellow;
+
+    [SerializeField]
+    private Button backButton;
 
     private readonly List<GameObject> historyRows = new List<GameObject>();
     private readonly List<TMP_Text[]> historyRowCells = new List<TMP_Text[]>();
@@ -32,7 +52,7 @@ public class FinishScreenView : MonoBehaviour
             Transform scoreTransform = FindDescendant("CurrentScoreText");
             if (scoreTransform != null)
             {
-                currentScoreText = scoreTransform.GetComponent<Text>();
+                currentScoreText = scoreTransform.GetComponent<TMP_Text>();
             }
         }
 
@@ -69,12 +89,22 @@ public class FinishScreenView : MonoBehaviour
 
     public void ShowResults(int currentScore, IReadOnlyList<ScoreHistoryEntry> scoreHistory)
     {
+        ShowResults(currentScore, scoreHistory, null);
+    }
+
+    public void ShowResults(
+        int currentScore,
+        IReadOnlyList<ScoreHistoryEntry> scoreHistory,
+        string currentEntryId
+    )
+    {
         if (currentScoreText != null)
         {
-            currentScoreText.text = $"Score: {currentScore}";
+            string currentScoreLabel = currentScore == 1 ? "1 point" : $"{currentScore} points";
+            currentScoreText.text = $"Score: {currentScoreLabel}";
         }
 
-        RebuildHistoryTable(scoreHistory);
+        RebuildHistoryTable(scoreHistory, currentEntryId);
     }
 
     public void SetVisible(bool visible)
@@ -82,7 +112,10 @@ public class FinishScreenView : MonoBehaviour
         gameObject.SetActive(visible);
     }
 
-    private void RebuildHistoryTable(IReadOnlyList<ScoreHistoryEntry> scoreHistory)
+    private void RebuildHistoryTable(
+        IReadOnlyList<ScoreHistoryEntry> scoreHistory,
+        string currentEntryId
+    )
     {
         if (historyTableRoot == null)
         {
@@ -101,19 +134,19 @@ public class FinishScreenView : MonoBehaviour
             return;
         }
 
-        int count = Mathf.Min(5, scoreHistory.Count);
+        List<HistoryDisplayRow> displayRows = BuildHistoryDisplayRows(scoreHistory, currentEntryId);
         bool hasVisibleEntry = false;
-        for (int index = 0; index < count; index++)
+        for (int index = 0; index < displayRows.Count; index++)
         {
-            ScoreHistoryEntry entry = scoreHistory[index];
-            if (entry == null)
-            {
-                continue;
-            }
-
-            string rankLabel = GetRankLabel(index + 1);
+            HistoryDisplayRow row = displayRows[index];
+            ScoreHistoryEntry entry = row.Entry;
             string pointsLabel = entry.points == 1 ? "1 point" : $"{entry.points} points";
-            CreateDataRow(rankLabel, pointsLabel, entry.playedAtJst);
+            CreateDataRow(
+                GetRankLabel(row.Rank),
+                pointsLabel,
+                entry.playedAtJst,
+                row.IsCurrentEntry
+            );
             hasVisibleEntry = true;
         }
 
@@ -123,6 +156,62 @@ public class FinishScreenView : MonoBehaviour
         }
 
         ApplyAutoColumnWidths();
+    }
+
+    private List<HistoryDisplayRow> BuildHistoryDisplayRows(
+        IReadOnlyList<ScoreHistoryEntry> scoreHistory,
+        string currentEntryId
+    )
+    {
+        List<HistoryDisplayRow> rows = new List<HistoryDisplayRow>();
+        int previousPoints = 0;
+        int currentRank = 0;
+        int validEntryCount = 0;
+        bool hasPreviousScore = false;
+        bool currentEntryIsVisible = false;
+        HistoryDisplayRow currentEntryRow = null;
+
+        for (int index = 0; index < scoreHistory.Count; index++)
+        {
+            ScoreHistoryEntry entry = scoreHistory[index];
+            if (entry == null)
+            {
+                continue;
+            }
+
+            validEntryCount++;
+            if (!hasPreviousScore || entry.points != previousPoints)
+            {
+                currentRank = validEntryCount;
+                previousPoints = entry.points;
+                hasPreviousScore = true;
+            }
+
+            bool isCurrentEntry = IsCurrentEntry(entry, currentEntryId);
+            HistoryDisplayRow row = new HistoryDisplayRow(entry, currentRank, isCurrentEntry);
+            if (validEntryCount <= 5)
+            {
+                rows.Add(row);
+                currentEntryIsVisible = currentEntryIsVisible || isCurrentEntry;
+            }
+
+            if (isCurrentEntry)
+            {
+                currentEntryRow = row;
+            }
+        }
+
+        if (!currentEntryIsVisible && currentEntryRow != null)
+        {
+            rows.Add(currentEntryRow);
+        }
+
+        return rows;
+    }
+
+    private bool IsCurrentEntry(ScoreHistoryEntry entry, string currentEntryId)
+    {
+        return !string.IsNullOrEmpty(currentEntryId) && entry.entryId == currentEntryId;
     }
 
     private string GetRankLabel(int rank)
@@ -137,7 +226,7 @@ public class FinishScreenView : MonoBehaviour
             1 => $"{rank}st",
             2 => $"{rank}nd",
             3 => $"{rank}rd",
-            _ => $"{rank}th"
+            _ => $"{rank}th",
         };
     }
 
@@ -165,20 +254,77 @@ public class FinishScreenView : MonoBehaviour
     {
         GameObject headerRow = CreateRowObject("HistoryHeaderRow");
         TMP_Text[] cells = new TMP_Text[HistoryColumnCount];
-        cells[0] = CreateCell(headerRow.transform, "RankHeader", "Rank", FontStyles.Bold, TextAlignmentOptions.MidlineRight);
-        cells[1] = CreateCell(headerRow.transform, "ScoreHeader", "Score", FontStyles.Bold, TextAlignmentOptions.MidlineRight);
-        cells[2] = CreateCell(headerRow.transform, "PlayedAtHeader", "Played at", FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
+        cells[0] = CreateCell(
+            headerRow.transform,
+            "RankHeader",
+            "Rank",
+            FontStyles.Bold,
+            TextAlignmentOptions.MidlineRight
+        );
+        cells[1] = CreateCell(
+            headerRow.transform,
+            "ScoreHeader",
+            "Score",
+            FontStyles.Bold,
+            TextAlignmentOptions.MidlineRight
+        );
+        cells[2] = CreateCell(
+            headerRow.transform,
+            "PlayedAtHeader",
+            "Played at",
+            FontStyles.Bold,
+            TextAlignmentOptions.MidlineLeft
+        );
         historyRowCells.Add(cells);
     }
 
     private void CreateDataRow(string rank, string score, string playedAt)
     {
+        CreateDataRow(rank, score, playedAt, false);
+    }
+
+    private void CreateDataRow(string rank, string score, string playedAt, bool highlight)
+    {
         GameObject rowObject = CreateRowObject("HistoryDataRow");
         TMP_Text[] cells = new TMP_Text[HistoryColumnCount];
-        cells[0] = CreateCell(rowObject.transform, "RankCell", rank, FontStyles.Normal, TextAlignmentOptions.MidlineRight);
-        cells[1] = CreateCell(rowObject.transform, "ScoreCell", score, FontStyles.Normal, TextAlignmentOptions.MidlineRight);
-        cells[2] = CreateCell(rowObject.transform, "PlayedAtCell", playedAt, FontStyles.Normal, TextAlignmentOptions.MidlineLeft);
+        cells[0] = CreateCell(
+            rowObject.transform,
+            "RankCell",
+            rank,
+            FontStyles.Normal,
+            TextAlignmentOptions.MidlineRight
+        );
+        cells[1] = CreateCell(
+            rowObject.transform,
+            "ScoreCell",
+            score,
+            FontStyles.Normal,
+            TextAlignmentOptions.MidlineRight
+        );
+        cells[2] = CreateCell(
+            rowObject.transform,
+            "PlayedAtCell",
+            playedAt,
+            FontStyles.Normal,
+            TextAlignmentOptions.MidlineLeft
+        );
+        if (highlight)
+        {
+            ApplyRowColor(cells, currentEntryTextColor);
+        }
+
         historyRowCells.Add(cells);
+    }
+
+    private void ApplyRowColor(TMP_Text[] cells, Color color)
+    {
+        for (int index = 0; index < cells.Length; index++)
+        {
+            if (cells[index] != null)
+            {
+                cells[index].color = color;
+            }
+        }
     }
 
     private GameObject CreateRowObject(string objectName)
@@ -201,7 +347,13 @@ public class FinishScreenView : MonoBehaviour
         return rowObject;
     }
 
-    private TMP_Text CreateCell(Transform parent, string objectName, string value, FontStyles fontStyle, TextAlignmentOptions alignment)
+    private TMP_Text CreateCell(
+        Transform parent,
+        string objectName,
+        string value,
+        FontStyles fontStyle,
+        TextAlignmentOptions alignment
+    )
     {
         GameObject textObject = new GameObject(objectName);
         textObject.layer = parent.gameObject.layer;
@@ -268,7 +420,7 @@ public class FinishScreenView : MonoBehaviour
         {
             historyRankColumnWidth,
             historyScoreColumnWidth,
-            historyPlayedAtColumnWidth
+            historyPlayedAtColumnWidth,
         };
     }
 
@@ -360,5 +512,19 @@ public class FinishScreenView : MonoBehaviour
         }
 
         return null;
+    }
+
+    private class HistoryDisplayRow
+    {
+        public readonly ScoreHistoryEntry Entry;
+        public readonly int Rank;
+        public readonly bool IsCurrentEntry;
+
+        public HistoryDisplayRow(ScoreHistoryEntry entry, int rank, bool isCurrentEntry)
+        {
+            Entry = entry;
+            Rank = rank;
+            IsCurrentEntry = isCurrentEntry;
+        }
     }
 }

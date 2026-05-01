@@ -7,6 +7,7 @@ public class GameManager : MonoBehaviour
     private enum GameSessionState
     {
         Waiting,
+        Countdown,
         Playing,
         Finished
     }
@@ -14,6 +15,8 @@ public class GameManager : MonoBehaviour
     [Header("Game Settings")]
     [SerializeField] private float initialTimeSeconds = 90f;
     [SerializeField] private float excavationDistanceThresholdMeters = 0.3f;
+    [SerializeField] private int startCountdownSeconds = 3;
+    [SerializeField] private float startTextDisplaySeconds = 0.5f;
     [SerializeField] private float collectedMarkerDisplaySeconds = 1f;
     [SerializeField] private float bombSpinDurationSeconds = 2f;
     [SerializeField] private float bombSpinDegreesPerSecond = 720f;
@@ -31,6 +34,21 @@ public class GameManager : MonoBehaviour
     [SerializeField] private DummyGameDataProvider dummyDataProvider;
     [SerializeField] private RosGameDataProvider rosDataProvider;
     [SerializeField] private GameRosPublisher gameRosPublisher;
+
+    [Header("SE")]
+    [SerializeField] private AudioClip startButtonSound;
+    [SerializeField] private AudioClip backButtonSound;
+    [SerializeField] private AudioClip countdownNumberSound;
+    [SerializeField] private AudioClip countdownStartSound;
+    [SerializeField] private AudioClip timeWarningNumberSound;
+    [SerializeField] private AudioClip timeUpSound;
+
+    [Header("BGM")]
+    [SerializeField] private AudioSource bgmAudioSource;
+    [SerializeField] private AudioClip waitingBgmClip;
+    [SerializeField] private AudioClip playingBgmClip;
+    [SerializeField] private AudioClip finishedBgmClip;
+    [SerializeField] [Range(0f, 1f)] private float bgmVolume = 0.35f;
 
     [Header("Artifact Definitions")]
     [SerializeField] private ArtifactCatalog artifactCatalog;
@@ -50,8 +68,10 @@ public class GameManager : MonoBehaviour
     private Vector2 robotSpinPosition;
     private float robotSpinStartHeading;
     private int lastPublishedTimeSeconds = -1;
+    private int lastTimeWarningSecondPlayed = -1;
     private GameSessionState currentState = GameSessionState.Waiting;
     private ScoreHistoryRepository scoreHistoryRepository;
+    private Coroutine startCountdownRoutine;
 
     private void Awake()
     {
@@ -61,6 +81,7 @@ public class GameManager : MonoBehaviour
         EnsureViews();
         EnsureRosIntegration();
         EnsureAudioRoot();
+        EnsureBgmAudioSource();
         EnsureRosPublisher();
         scoreHistoryRepository = new ScoreHistoryRepository();
     }
@@ -81,6 +102,7 @@ public class GameManager : MonoBehaviour
             // タイマーは playing 中だけ起動
             timeRemaining = Mathf.Max(0f, timeRemaining - Time.deltaTime);
             UpdateTimerDisplay(timeRemaining);
+            PlayTimeWarningSoundIfNeeded();
 
             if (timeRemaining <= 0f)
             {
@@ -118,12 +140,76 @@ public class GameManager : MonoBehaviour
     // waiting 状態から新しいゲームプレイを開始
     public void StartGame()
     {
+        if (currentState != GameSessionState.Waiting)
+        {
+            return;
+        }
+
+        StartCountdown();
+    }
+
+    private void StartCountdown()
+    {
+        StopStartCountdown();
+        timerRunning = false;
+        currentState = GameSessionState.Countdown;
+        SetRobotSpinActive(false);
+        UpdateStateDisplay("Countdown");
+        PlayBgm(null);
+        UpdateArtifactState(Vector2.zero, false);
+        SetStartScreenVisible(false);
+        SetFinishScreenVisible(false);
+        startCountdownRoutine = StartCoroutine(StartCountdownRoutine());
+    }
+
+    private System.Collections.IEnumerator StartCountdownRoutine()
+    {
+        int countdownSeconds = Mathf.Max(0, startCountdownSeconds);
+        for (int seconds = countdownSeconds; seconds > 0; seconds--)
+        {
+            PlayOneShot(countdownNumberSound);
+            ShowCountdownPopup(seconds.ToString(), 1f);
+            yield return new WaitForSeconds(1f);
+        }
+
+        PlayOneShot(countdownStartSound);
+        ShowCountdownPopup("START", startTextDisplaySeconds);
+        yield return new WaitForSeconds(Mathf.Max(0f, startTextDisplaySeconds));
+        startCountdownRoutine = null;
+        BeginPlaying();
+    }
+
+    private void ShowCountdownPopup(string text, float displaySeconds)
+    {
+        if (popupController != null)
+        {
+            popupController.ShowTextPopup(text, displaySeconds);
+        }
+    }
+
+    private void StopStartCountdown()
+    {
+        if (startCountdownRoutine != null)
+        {
+            StopCoroutine(startCountdownRoutine);
+            startCountdownRoutine = null;
+        }
+
+        if (popupController != null)
+        {
+            popupController.HidePopup();
+        }
+    }
+
+    private void BeginPlaying()
+    {
         score = 0;
         timeRemaining = initialTimeSeconds;
         timerRunning = true;
         elapsedTime = 0f;
         currentState = GameSessionState.Playing;
         lastPublishedTimeSeconds = -1;
+        lastTimeWarningSecondPlayed = -1;
         SetRobotSpinActive(false);
 
         IReadOnlyList<ArtifactInstance> artifacts = dummyDataProvider != null
@@ -134,6 +220,7 @@ public class GameManager : MonoBehaviour
         UpdateScoreDisplay(score);
         UpdateTimerDisplay(timeRemaining);
         UpdateStateDisplay("Playing");
+        PlayBgm(playingBgmClip);
         UpdateArtifactState(artifacts, dummyDataProvider != null);
         SetStartScreenVisible(false);
         SetFinishScreenVisible(false);
@@ -261,20 +348,37 @@ public class GameManager : MonoBehaviour
 
     private void PlayArtifactSound(ArtifactDefinition definition)
     {
-        if (excavationAudioSource == null)
-        {
-            return;
-        }
-
         AudioClip collectSound = definition != null && definition.CollectSound != null
             ? definition.CollectSound
             : excavationSuccessClip;
-        if (collectSound == null)
+        PlayOneShot(collectSound);
+    }
+
+    private void PlayOneShot(AudioClip clip)
+    {
+        if (excavationAudioSource == null || clip == null)
         {
             return;
         }
 
-        excavationAudioSource.PlayOneShot(collectSound);
+        excavationAudioSource.PlayOneShot(clip);
+    }
+
+    private void PlayTimeWarningSoundIfNeeded()
+    {
+        if (currentState != GameSessionState.Playing || !timerRunning)
+        {
+            return;
+        }
+
+        int remainingSeconds = Mathf.CeilToInt(timeRemaining);
+        if (remainingSeconds < 1 || remainingSeconds > 3 || remainingSeconds == lastTimeWarningSecondPlayed)
+        {
+            return;
+        }
+
+        lastTimeWarningSecondPlayed = remainingSeconds;
+        PlayOneShot(timeWarningNumberSound != null ? timeWarningNumberSound : countdownNumberSound);
     }
 
     // 化石の内部状態と画面表示状態を同期
@@ -439,6 +543,15 @@ public class GameManager : MonoBehaviour
                 excavationAudioSource = audioRoot.GetComponent<AudioSource>();
             }
         }
+
+        if (bgmAudioSource == null)
+        {
+            GameObject bgmRoot = GameObject.Find("BgmAudioRoot");
+            if (bgmRoot != null)
+            {
+                bgmAudioSource = bgmRoot.GetComponent<AudioSource>();
+            }
+        }
     }
 
     // 地図表示用のカメラ設定
@@ -548,6 +661,56 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    private void EnsureBgmAudioSource()
+    {
+        GameObject bgmRoot = GameObject.Find("BgmAudioRoot");
+        if (bgmRoot == null)
+        {
+            bgmRoot = new GameObject("BgmAudioRoot");
+        }
+
+        AudioSource audioSource = bgmRoot.GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            audioSource = bgmRoot.AddComponent<AudioSource>();
+        }
+
+        audioSource.playOnAwake = false;
+        audioSource.loop = true;
+        audioSource.volume = bgmVolume;
+
+        if (bgmAudioSource == null)
+        {
+            bgmAudioSource = audioSource;
+        }
+    }
+
+    private void PlayBgm(AudioClip clip)
+    {
+        if (bgmAudioSource == null)
+        {
+            return;
+        }
+
+        bgmAudioSource.volume = bgmVolume;
+        bgmAudioSource.loop = true;
+
+        if (clip == null)
+        {
+            bgmAudioSource.Stop();
+            bgmAudioSource.clip = null;
+            return;
+        }
+
+        if (bgmAudioSource.clip == clip && bgmAudioSource.isPlaying)
+        {
+            return;
+        }
+
+        bgmAudioSource.clip = clip;
+        bgmAudioSource.Play();
+    }
+
     // ROS subscriber 群を確保しつつ、手動セットアップ無しでも動くように
     private void EnsureRosIntegration()
     {
@@ -610,29 +773,44 @@ public class GameManager : MonoBehaviour
     {
         if (startScreenView != null)
         {
-            startScreenView.Bind(StartGame);
+            startScreenView.Bind(HandleStartButtonRequested);
         }
 
         if (finishScreenView != null)
         {
-            finishScreenView.Bind(EnterWaitingState);
+            finishScreenView.Bind(HandleBackButtonRequested);
         }
+    }
+
+    private void HandleStartButtonRequested()
+    {
+        PlayOneShot(startButtonSound);
+        StartGame();
+    }
+
+    private void HandleBackButtonRequested()
+    {
+        PlayOneShot(backButtonSound);
+        EnterWaitingState();
     }
 
     // ゲーム開始前の待機状態へ戻し、待機画面を表示
     private void EnterWaitingState()
     {
+        StopStartCountdown();
         timerRunning = false;
         elapsedTime = 0f;
         score = 0;
         timeRemaining = initialTimeSeconds;
         currentState = GameSessionState.Waiting;
         lastPublishedTimeSeconds = -1;
+        lastTimeWarningSecondPlayed = -1;
         SetRobotSpinActive(false);
 
         UpdateScoreDisplay(score);
         UpdateTimerDisplay(timeRemaining);
         UpdateStateDisplay("Waiting");
+        PlayBgm(waitingBgmClip);
         UpdateArtifactState(Vector2.zero, false);
         SetFinishScreenVisible(false);
         SetStartScreenVisible(true);
@@ -651,14 +829,17 @@ public class GameManager : MonoBehaviour
 
         timerRunning = false;
         currentState = GameSessionState.Finished;
+        PlayOneShot(timeUpSound != null ? timeUpSound : countdownStartSound);
+        StopStartCountdown();
         SetRobotSpinActive(false);
         UpdateStateDisplay("Finished");
+        PlayBgm(finishedBgmClip);
         UpdateArtifactState(currentArtifactPosition, false);
 
-        IReadOnlyList<ScoreHistoryEntry> scoreHistory = scoreHistoryRepository.AppendScoreAndLoadDescending(score);
+        IReadOnlyList<ScoreHistoryEntry> scoreHistory = scoreHistoryRepository.AppendScoreAndLoadDescending(score, out string currentScoreEntryId);
         if (finishScreenView != null)
         {
-            finishScreenView.ShowResults(score, scoreHistory);
+            finishScreenView.ShowResults(score, scoreHistory, currentScoreEntryId);
         }
 
         SetStartScreenVisible(false);

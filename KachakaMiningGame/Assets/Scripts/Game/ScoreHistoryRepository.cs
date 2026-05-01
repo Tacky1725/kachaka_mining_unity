@@ -21,9 +21,16 @@ public class ScoreHistoryRepository
 
     public IReadOnlyList<ScoreHistoryEntry> AppendScoreAndLoadDescending(int score)
     {
+        return AppendScoreAndLoadDescending(score, out _);
+    }
+
+    public IReadOnlyList<ScoreHistoryEntry> AppendScoreAndLoadDescending(int score, out string appendedEntryId)
+    {
         ScoreHistoryData data = LoadData();
+        appendedEntryId = Guid.NewGuid().ToString("N");
         data.entries.Add(new ScoreHistoryEntry
         {
+            entryId = appendedEntryId,
             playedAtJst = GetCurrentJapanTimeString(),
             points = score
         });

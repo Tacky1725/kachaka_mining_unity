@@ -24,6 +24,11 @@ public class PopupController : MonoBehaviour
 
     public void ShowScorePopup(int amount)
     {
+        ShowTextPopup($"+{amount}", visibleSeconds);
+    }
+
+    public void ShowTextPopup(string text, float displaySeconds)
+    {
         if (popupText == null)
         {
             return;
@@ -34,14 +39,29 @@ public class PopupController : MonoBehaviour
             StopCoroutine(popupRoutine);
         }
 
-        popupRoutine = StartCoroutine(ShowPopupRoutine(amount));
+        popupRoutine = StartCoroutine(ShowPopupRoutine(text, displaySeconds));
     }
 
-    private IEnumerator ShowPopupRoutine(int amount)
+    public void HidePopup()
     {
-        popupText.text = $"+{amount}";
+        if (popupRoutine != null)
+        {
+            StopCoroutine(popupRoutine);
+            popupRoutine = null;
+        }
+
+        if (popupText != null)
+        {
+            popupText.enabled = false;
+        }
+    }
+
+    private IEnumerator ShowPopupRoutine(string text, float displaySeconds)
+    {
+        popupText.text = text;
         popupText.enabled = true;
-        yield return new WaitForSeconds(visibleSeconds);
+        yield return new WaitForSeconds(Mathf.Max(0f, displaySeconds));
         popupText.enabled = false;
+        popupRoutine = null;
     }
 }
