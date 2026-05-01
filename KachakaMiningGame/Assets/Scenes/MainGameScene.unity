@@ -133,6 +133,7 @@ GameObject:
   - component: {fileID: 100001}
   - component: {fileID: 100002}
   - component: {fileID: 100003}
+  - component: {fileID: 100004}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -187,6 +188,7 @@ MonoBehaviour:
   dummyDataProvider: {fileID: 100003}
   rosDataProvider: {fileID: 600004}
   gameRosPublisher: {fileID: 0}
+  gameInput: {fileID: 100004}
   joyconRumbleService: {fileID: 758589855}
   startButtonSound: {fileID: 8300000, guid: ee4922f6850423a4da91bc03287d188b, type: 3}
   backButtonSound: {fileID: 8300000, guid: 0f92e74071d4e0c47a132a559f2fe08d, type: 3}
@@ -236,6 +238,39 @@ MonoBehaviour:
   robotPathCenter: {x: 0, y: 0}
   robotPathRadius: {x: 1.1, y: 0.7}
   robotPathSpeed: 0.6
+--- !u!114 &100004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ae4cf55ea0f84a13bb27e3788c62cf75, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  bindings:
+  - action: 0
+    key: 97
+    useJoyconButton: 1
+    joyconSide: 0
+    joyconButton: 11
+  - action: 1
+    key: 113
+    useJoyconButton: 1
+    joyconSide: 0
+    joyconButton: 8
+  - action: 0
+    key: 97
+    useJoyconButton: 1
+    joyconSide: 0
+    joyconButton: 12
+  - action: 1
+    key: 113
+    useJoyconButton: 1
+    joyconSide: 0
+    joyconButton: 6
 --- !u!1 &200000
 GameObject:
   m_ObjectHideFlags: 0

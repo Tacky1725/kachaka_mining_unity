@@ -61,6 +61,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Scripts\UI\PauseMenuView.cs" />
+    <Compile Include="Assets\Scripts\Input\GameInputController.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_TextEventHandler.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexShakeA.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMPro_InstructionOverlay.cs" />
@@ -118,6 +119,7 @@
     <Compile Include="Assets\Scripts\Game\ScoreHistoryRepository.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\Benchmark03.cs" />
     <Compile Include="Assets\Scripts\Integration\RosGameDataProvider.cs" />
+    <Compile Include="Assets\Scripts\Input\GameInputAction.cs" />
     <Compile Include="Assets\Scripts\Map\MapViewController.cs" />
     <Compile Include="Assets\Scripts\Integration\ConverterExtension.cs" />
     <Compile Include="Assets\Scripts\Integration\RobotPoseSubscriber.cs" />

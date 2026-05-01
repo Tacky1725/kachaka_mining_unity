@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Assembly-CSharp", "Assembly
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kachaka.JoyconInput", "Kachaka.JoyconInput.csproj", "{9FCCDFDF-1250-65A8-F530-468844A14099}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Assembly-CSharp-Editor", "Assembly-CSharp-Editor.csproj", "{B8ECF1BD-EFDB-22B4-54EC-F3C054980272}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -25,6 +27,10 @@ Global
 		{9FCCDFDF-1250-65A8-F530-468844A14099}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9FCCDFDF-1250-65A8-F530-468844A14099}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9FCCDFDF-1250-65A8-F530-468844A14099}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B8ECF1BD-EFDB-22B4-54EC-F3C054980272}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8ECF1BD-EFDB-22B4-54EC-F3C054980272}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B8ECF1BD-EFDB-22B4-54EC-F3C054980272}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B8ECF1BD-EFDB-22B4-54EC-F3C054980272}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

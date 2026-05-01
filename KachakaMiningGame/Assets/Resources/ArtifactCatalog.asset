@@ -20,7 +20,7 @@ MonoBehaviour:
     CollectSound: {fileID: 8300000, guid: cfc86bc8e324c7746a0ce69110a714fa, type: 3}
     TriggersSpin: 0
     SpawnWeight: 5
-    RumbleAmplitude: 0.6
+    RumbleAmplitude: 0.7
     RumbleDurationMilliseconds: 200
   - Kind: 1
     ScoreAmount: 3
@@ -29,7 +29,7 @@ MonoBehaviour:
     CollectSound: {fileID: 8300000, guid: eac83f764639b77418b7f7768509f254, type: 3}
     TriggersSpin: 0
     SpawnWeight: 3
-    RumbleAmplitude: 0.7
+    RumbleAmplitude: 0.8
     RumbleDurationMilliseconds: 300
   - Kind: 2
     ScoreAmount: 0

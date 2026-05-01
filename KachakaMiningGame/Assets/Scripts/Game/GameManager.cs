@@ -77,6 +77,9 @@ public class GameManager : MonoBehaviour
 
     [Header("Input Feedback")]
     [SerializeField]
+    private GameInputController gameInput;
+
+    [SerializeField]
     private JoyconRumbleService joyconRumbleService;
 
     [Header("SE")]
@@ -145,6 +148,7 @@ public class GameManager : MonoBehaviour
     {
         EnsureCamera();
         BindSceneReferences();
+        EnsureInputController();
         EnsureMap();
         EnsureViews();
         EnsureRosIntegration();
@@ -163,7 +167,7 @@ public class GameManager : MonoBehaviour
     // タイマー進行、ロボット位置更新、採掘判定、残り時間のパブリッシュ
     private void Update()
     {
-        HandleKeyboardShortcuts();
+        HandleInputShortcuts();
         if (currentState == GameSessionState.Paused)
         {
             return;
@@ -335,41 +339,48 @@ public class GameManager : MonoBehaviour
         UpdateArtifactState(artifacts, dummyDataProvider != null);
     }
 
-    private void HandleKeyboardShortcuts()
+    private void HandleInputShortcuts()
     {
-        if (Input.GetKeyDown(KeyCode.A) && currentState == GameSessionState.Waiting)
+        if (gameInput == null)
         {
-            HandleStartButtonRequested();
             return;
         }
 
-        if (
-            Input.GetKeyDown(KeyCode.A)
-            && (
-                currentState == GameSessionState.Countdown
-                || currentState == GameSessionState.Playing
-            )
-        )
+        switch (currentState)
         {
-            EnterPauseState();
-            return;
-        }
+            case GameSessionState.Waiting:
+                if (gameInput.GetButtonDown(GameInputAction.Confirm))
+                {
+                    HandleStartButtonRequested();
+                }
 
-        if (Input.GetKeyDown(KeyCode.Q) && currentState == GameSessionState.Paused)
-        {
-            HandlePauseQuitGameRequested();
-            return;
-        }
+                break;
+            case GameSessionState.Countdown:
+            case GameSessionState.Playing:
+                if (gameInput.GetButtonDown(GameInputAction.Confirm))
+                {
+                    EnterPauseState();
+                }
 
-        if (Input.GetKeyDown(KeyCode.A) && currentState == GameSessionState.Paused)
-        {
-            HandlePauseBackRequested();
-            return;
-        }
+                break;
+            case GameSessionState.Paused:
+                if (gameInput.GetButtonDown(GameInputAction.Quit))
+                {
+                    HandlePauseQuitGameRequested();
+                }
+                else if (gameInput.GetButtonDown(GameInputAction.Confirm))
+                {
+                    HandlePauseBackRequested();
+                }
 
-        if (Input.GetKeyDown(KeyCode.A) && currentState == GameSessionState.Finished)
-        {
-            HandleBackButtonRequested();
+                break;
+            case GameSessionState.Finished:
+                if (gameInput.GetButtonDown(GameInputAction.Confirm))
+                {
+                    HandleBackButtonRequested();
+                }
+
+                break;
         }
     }
 
@@ -775,6 +786,11 @@ public class GameManager : MonoBehaviour
             gameRosPublisher = FindObjectOfType<GameRosPublisher>();
         }
 
+        if (gameInput == null)
+        {
+            gameInput = FindObjectOfType<GameInputController>();
+        }
+
         if (joyconRumbleService == null)
         {
             joyconRumbleService = FindObjectOfType<JoyconRumbleService>();
@@ -796,6 +812,20 @@ public class GameManager : MonoBehaviour
             {
                 bgmAudioSource = bgmRoot.GetComponent<AudioSource>();
             }
+        }
+    }
+
+    private void EnsureInputController()
+    {
+        if (gameInput != null)
+        {
+            return;
+        }
+
+        gameInput = GetComponent<GameInputController>();
+        if (gameInput == null)
+        {
+            gameInput = gameObject.AddComponent<GameInputController>();
         }
     }
 
