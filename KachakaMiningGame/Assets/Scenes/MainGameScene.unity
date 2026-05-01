@@ -169,7 +169,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   initialTimeSeconds: 30
   excavationDistanceThresholdMeters: 0.3
-  bombSpinDurationSeconds: 1
+  bombSpinDurationSeconds: 4
   bombSpinDegreesPerSecond: 360
   mapView: {fileID: 300002}
   scoreView: {fileID: 410004}
@@ -197,20 +197,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   artifactSpawnCandidates:
-  - {x: 1, y: 0}
-  - {x: 1, y: 0.5}
-  - {x: 1, y: 1}
-  - {x: 1, y: 1.5}
+  - {x: 1, y: 3}
+  - {x: 1, y: 2.5}
   - {x: 1, y: 2}
-  - {x: 1.5, y: 0.25}
-  - {x: 1.5, y: 0.75}
-  - {x: 1.5, y: 1.25}
-  - {x: 1.5, y: 1.75}
-  - {x: 2, y: 0}
-  - {x: 2, y: 0.5}
-  - {x: 2, y: 1}
-  - {x: 2, y: 1.5}
+  - {x: 1.5, y: 3}
+  - {x: 1.5, y: 2.5}
+  - {x: 1.5, y: 2}
+  - {x: 2, y: 3}
+  - {x: 2, y: 2.5}
   - {x: 2, y: 2}
+  - {x: 2.5, y: 3}
+  - {x: 2.5, y: 2.5}
+  - {x: 2.5, y: 2}
+  - {x: 3, y: 3}
+  - {x: 3, y: 2.5}
+  - {x: 3, y: 2}
   artifactKinds: 000000000100000002000000
   artifactCatalog: {fileID: 11400000, guid: 5afaa34e0a104ac6a04ab5d1c24a7d1e, type: 2}
   avoidImmediateArtifactRespawnRepeat: 1

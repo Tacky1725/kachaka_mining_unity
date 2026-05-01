@@ -11,6 +11,7 @@ public class RobotPoseSubscriber : MonoBehaviour
     private PoseStampedMsg latestPoseMessage;
     private float lastMessageReceivedAt = -1f;
     private bool hasPose;
+    private bool acceptingMessages = true;
 
     private void Start()
     {
@@ -26,9 +27,32 @@ public class RobotPoseSubscriber : MonoBehaviour
 
         lock (dataLock)
         {
+            if (!acceptingMessages)
+            {
+                return;
+            }
+
             latestPoseMessage = message;
             lastMessageReceivedAt = Time.realtimeSinceStartup;
             hasPose = true;
+        }
+    }
+
+    public void PauseAndDiscard()
+    {
+        lock (dataLock)
+        {
+            acceptingMessages = false;
+            ClearLatestPoseLocked();
+        }
+    }
+
+    public void ResumeFresh()
+    {
+        lock (dataLock)
+        {
+            ClearLatestPoseLocked();
+            acceptingMessages = true;
         }
     }
 
@@ -72,5 +96,12 @@ public class RobotPoseSubscriber : MonoBehaviour
             receivedAt = lastMessageReceivedAt;
             return true;
         }
+    }
+
+    private void ClearLatestPoseLocked()
+    {
+        latestPoseMessage = null;
+        lastMessageReceivedAt = -1f;
+        hasPose = false;
     }
 }

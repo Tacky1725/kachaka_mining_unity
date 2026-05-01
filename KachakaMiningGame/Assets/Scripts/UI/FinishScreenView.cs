@@ -165,7 +165,7 @@ public class FinishScreenView : MonoBehaviour
     {
         GameObject headerRow = CreateRowObject("HistoryHeaderRow");
         TMP_Text[] cells = new TMP_Text[HistoryColumnCount];
-        cells[0] = CreateCell(headerRow.transform, "RankHeader", "Rank", FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
+        cells[0] = CreateCell(headerRow.transform, "RankHeader", "Rank", FontStyles.Bold, TextAlignmentOptions.MidlineRight);
         cells[1] = CreateCell(headerRow.transform, "ScoreHeader", "Score", FontStyles.Bold, TextAlignmentOptions.MidlineRight);
         cells[2] = CreateCell(headerRow.transform, "PlayedAtHeader", "Played at", FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
         historyRowCells.Add(cells);
@@ -175,7 +175,7 @@ public class FinishScreenView : MonoBehaviour
     {
         GameObject rowObject = CreateRowObject("HistoryDataRow");
         TMP_Text[] cells = new TMP_Text[HistoryColumnCount];
-        cells[0] = CreateCell(rowObject.transform, "RankCell", rank, FontStyles.Normal, TextAlignmentOptions.MidlineLeft);
+        cells[0] = CreateCell(rowObject.transform, "RankCell", rank, FontStyles.Normal, TextAlignmentOptions.MidlineRight);
         cells[1] = CreateCell(rowObject.transform, "ScoreCell", score, FontStyles.Normal, TextAlignmentOptions.MidlineRight);
         cells[2] = CreateCell(rowObject.transform, "PlayedAtCell", playedAt, FontStyles.Normal, TextAlignmentOptions.MidlineLeft);
         historyRowCells.Add(cells);

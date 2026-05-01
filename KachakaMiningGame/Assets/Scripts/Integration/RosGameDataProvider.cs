@@ -48,9 +48,39 @@ public class RosGameDataProvider : MonoBehaviour
         }
     }
 
+    public void PauseRobotPoseStream()
+    {
+        robotPoseUpdatesEnabled = false;
+        lastRobotPoseAt = -1f;
+
+        if (robotPoseSubscriber != null)
+        {
+            robotPoseSubscriber.PauseAndDiscard();
+        }
+    }
+
+    public void ResumeRobotPoseStreamFresh()
+    {
+        lastRobotPoseAt = -1f;
+
+        if (robotPoseSubscriber != null)
+        {
+            robotPoseSubscriber.ResumeFresh();
+        }
+
+        robotPoseUpdatesEnabled = true;
+    }
+
     public void SetRobotPoseUpdatesEnabled(bool enabled)
     {
-        robotPoseUpdatesEnabled = enabled;
+        if (enabled)
+        {
+            ResumeRobotPoseStreamFresh();
+        }
+        else
+        {
+            PauseRobotPoseStream();
+        }
     }
 
     private void Update()

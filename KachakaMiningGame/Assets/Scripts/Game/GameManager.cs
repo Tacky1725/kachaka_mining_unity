@@ -339,10 +339,27 @@ public class GameManager : MonoBehaviour
 
     private void SetRobotSpinActive(bool active)
     {
+        if (robotSpinActive == active)
+        {
+            if (mapView != null)
+            {
+                mapView.SetRadarVisible(!active);
+            }
+
+            return;
+        }
+
         robotSpinActive = active;
         if (rosDataProvider != null)
         {
-            rosDataProvider.SetRobotPoseUpdatesEnabled(!active);
+            if (active)
+            {
+                rosDataProvider.PauseRobotPoseStream();
+            }
+            else
+            {
+                rosDataProvider.ResumeRobotPoseStreamFresh();
+            }
         }
 
         if (mapView != null)

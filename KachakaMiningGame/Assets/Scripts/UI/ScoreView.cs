@@ -1,5 +1,5 @@
-using UnityEngine;
 using TMPro;
+using UnityEngine;
 
 public class ScoreView : MonoBehaviour
 {
@@ -15,6 +15,7 @@ public class ScoreView : MonoBehaviour
 
     public void UpdateScore(int score)
     {
-        scoreText.text = $"Score: {score}";
+        string pointsLabel = score == 1 ? "1 point" : $"{score} points";
+        scoreText.text = $"Score: {pointsLabel}";
     }
 }
