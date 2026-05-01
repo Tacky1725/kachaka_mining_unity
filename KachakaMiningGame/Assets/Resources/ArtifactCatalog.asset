@@ -20,6 +20,8 @@ MonoBehaviour:
     CollectSound: {fileID: 8300000, guid: cfc86bc8e324c7746a0ce69110a714fa, type: 3}
     TriggersSpin: 0
     SpawnWeight: 5
+    RumbleAmplitude: 0.6
+    RumbleDurationMilliseconds: 200
   - Kind: 1
     ScoreAmount: 3
     MarkerPrefab: {fileID: 6481349942245988202, guid: 98f03e2b8718db74b958e03cbd616b5a, type: 3}
@@ -27,6 +29,8 @@ MonoBehaviour:
     CollectSound: {fileID: 8300000, guid: eac83f764639b77418b7f7768509f254, type: 3}
     TriggersSpin: 0
     SpawnWeight: 3
+    RumbleAmplitude: 0.7
+    RumbleDurationMilliseconds: 300
   - Kind: 2
     ScoreAmount: 0
     MarkerPrefab: {fileID: 6481349942245988202, guid: bace23685fb621b40a2105d3ac8aad07, type: 3}
@@ -34,3 +38,5 @@ MonoBehaviour:
     CollectSound: {fileID: 8300000, guid: e234c63cc635371439b47df1bc17c4e6, type: 3}
     TriggersSpin: 1
     SpawnWeight: 1
+    RumbleAmplitude: 1
+    RumbleDurationMilliseconds: 3000

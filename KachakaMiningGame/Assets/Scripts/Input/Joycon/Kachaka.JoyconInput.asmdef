@@ -1,0 +1,16 @@
+{
+    "name": "Kachaka.JoyconInput",
+    "rootNamespace": "",
+    "references": [
+        "Kachaka.JoyconLib"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

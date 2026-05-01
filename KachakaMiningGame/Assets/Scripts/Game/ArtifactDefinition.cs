@@ -10,6 +10,8 @@ public class ArtifactDefinition
     public AudioClip CollectSound;
     public bool TriggersSpin;
     [Min(0f)] public float SpawnWeight = 1f;
+    [Range(0f, 1f)] public float RumbleAmplitude = 0.6f;
+    [Min(1)] public int RumbleDurationMilliseconds = 300;
 
     public ArtifactDefinition()
     {
@@ -20,5 +22,7 @@ public class ArtifactDefinition
         Kind = kind;
         ScoreAmount = scoreAmount;
         TriggersSpin = triggersSpin;
+        RumbleAmplitude = 0.6f;
+        RumbleDurationMilliseconds = 300;
     }
 }

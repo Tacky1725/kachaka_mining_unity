@@ -172,7 +172,7 @@ MonoBehaviour:
   startCountdownSeconds: 3
   startTextDisplaySeconds: 0.5
   collectedMarkerDisplaySeconds: 0.2
-  bombSpinDurationSeconds: 4
+  bombSpinDurationSeconds: 5
   bombSpinDegreesPerSecond: 360
   mapView: {fileID: 300002}
   scoreView: {fileID: 410004}
@@ -186,6 +186,7 @@ MonoBehaviour:
   dummyDataProvider: {fileID: 100003}
   rosDataProvider: {fileID: 600004}
   gameRosPublisher: {fileID: 0}
+  joyconRumbleService: {fileID: 758589855}
   startButtonSound: {fileID: 8300000, guid: ee4922f6850423a4da91bc03287d188b, type: 3}
   backButtonSound: {fileID: 8300000, guid: 0f92e74071d4e0c47a132a559f2fe08d, type: 3}
   countdownNumberSound: {fileID: 8300000, guid: 07727902cc22d3048ae6683cba72e8fb, type: 3}
@@ -1484,6 +1485,91 @@ Transform:
   m_Children: []
   m_Father: {fileID: 300001}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &758589854
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 758589857}
+  - component: {fileID: 758589856}
+  - component: {fileID: 758589855}
+  - component: {fileID: 758589858}
+  m_Layer: 0
+  m_Name: JoyconInputRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &758589855
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 758589854}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6d7365e749ab6084aa3914ace83f4f28, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  rumbleLeft: 1
+  rumbleRight: 1
+  lowFrequency: 160
+  highFrequency: 320
+  amplitude: 0.6
+  durationMilliseconds: 300
+--- !u!114 &758589856
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 758589854}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5b6ca4d96a3aa240bb36a60d9457ed8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  EnableIMU: 1
+  EnableLocalize: 1
+--- !u!4 &758589857
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 758589854}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 538.75006, y: 307.75, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &758589858
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 758589854}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b2dc401e38699bd48b5d0712ac3167bf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  rumbleService: {fileID: 0}
+  showButtonDebug: 1
+  enableDpadUpRumbleTest: 1
+  testLowFrequency: 160
+  testHighFrequency: 320
+  testAmplitude: 0.6
+  testDurationMilliseconds: 200
 --- !u!1 &1312015046
 GameObject:
   m_ObjectHideFlags: 0
@@ -2320,3 +2406,4 @@ SceneRoots:
   - {fileID: 500001}
   - {fileID: 400001}
   - {fileID: 600001}
+  - {fileID: 758589857}

@@ -35,6 +35,9 @@ public class GameManager : MonoBehaviour
     [SerializeField] private RosGameDataProvider rosDataProvider;
     [SerializeField] private GameRosPublisher gameRosPublisher;
 
+    [Header("Input Feedback")]
+    [SerializeField] private JoyconRumbleService joyconRumbleService;
+
     [Header("SE")]
     [SerializeField] private AudioClip startButtonSound;
     [SerializeField] private AudioClip backButtonSound;
@@ -280,12 +283,27 @@ public class GameManager : MonoBehaviour
         // 同じ化石で多重加点しないよう、成功時点でいったん非表示にしてからスコア加算と再配置
         ArtifactInstance collectedArtifact = currentArtifacts[collectedArtifactIndex];
         ArtifactKind collectedArtifactKind = collectedArtifact.Kind;
+        ArtifactDefinition collectedArtifactDefinition = GetArtifactDefinition(collectedArtifactKind);
         if (mapView != null)
         {
             mapView.ShowCollectedArtifactMarker(
                 collectedArtifact.Position,
                 collectedArtifactKind,
                 collectedMarkerDisplaySeconds);
+        }
+
+        if (joyconRumbleService != null)
+        {
+            if (collectedArtifactDefinition != null)
+            {
+                joyconRumbleService.PlayArtifactCollectedRumble(
+                    collectedArtifactDefinition.RumbleAmplitude,
+                    collectedArtifactDefinition.RumbleDurationMilliseconds);
+            }
+            else
+            {
+                joyconRumbleService.PlayArtifactCollectedRumble();
+            }
         }
 
         ApplyArtifactEffect(collectedArtifactKind);
@@ -533,6 +551,11 @@ public class GameManager : MonoBehaviour
         if (gameRosPublisher == null)
         {
             gameRosPublisher = FindObjectOfType<GameRosPublisher>();
+        }
+
+        if (joyconRumbleService == null)
+        {
+            joyconRumbleService = FindObjectOfType<JoyconRumbleService>();
         }
 
         if (excavationAudioSource == null)

@@ -1189,6 +1189,14 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="Kachaka.JoyconInput.csproj">
+      <Project>{9FCCDFDF-1250-65A8-F530-468844A14099}</Project>
+      <Name>Kachaka.JoyconInput</Name>
+    </ProjectReference>
+    <ProjectReference Include="Kachaka.JoyconLib.csproj">
+      <Project>{F6BEF840-7B9C-2841-784C-B6BEB29021A8}</Project>
+      <Name>Kachaka.JoyconLib</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="GenerateTargetFrameworkMonikerAttribute" />
