@@ -6,6 +6,7 @@ public class ArtifactDefinition
     public ArtifactKind Kind;
     public int ScoreAmount;
     public GameObject MarkerPrefab;
+    public GameObject CollectedMarkerPrefab;
     public AudioClip CollectSound;
     public bool TriggersSpin;
     [Min(0f)] public float SpawnWeight = 1f;

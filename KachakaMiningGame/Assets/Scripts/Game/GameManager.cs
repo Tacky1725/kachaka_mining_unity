@@ -14,6 +14,7 @@ public class GameManager : MonoBehaviour
     [Header("Game Settings")]
     [SerializeField] private float initialTimeSeconds = 90f;
     [SerializeField] private float excavationDistanceThresholdMeters = 0.3f;
+    [SerializeField] private float collectedMarkerDisplaySeconds = 1f;
     [SerializeField] private float bombSpinDurationSeconds = 2f;
     [SerializeField] private float bombSpinDegreesPerSecond = 720f;
 
@@ -190,7 +191,16 @@ public class GameManager : MonoBehaviour
         }
 
         // 同じ化石で多重加点しないよう、成功時点でいったん非表示にしてからスコア加算と再配置
-        ArtifactKind collectedArtifactKind = currentArtifacts[collectedArtifactIndex].Kind;
+        ArtifactInstance collectedArtifact = currentArtifacts[collectedArtifactIndex];
+        ArtifactKind collectedArtifactKind = collectedArtifact.Kind;
+        if (mapView != null)
+        {
+            mapView.ShowCollectedArtifactMarker(
+                collectedArtifact.Position,
+                collectedArtifactKind,
+                collectedMarkerDisplaySeconds);
+        }
+
         ApplyArtifactEffect(collectedArtifactKind);
         IReadOnlyList<ArtifactInstance> artifacts = dummyDataProvider != null
             ? dummyDataProvider.CollectArtifactAt(collectedArtifactIndex)

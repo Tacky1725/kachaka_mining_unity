@@ -210,6 +210,29 @@ public class MapViewController : MonoBehaviour
         RefreshArtifactVisibility();
     }
 
+    public void ShowCollectedArtifactMarker(Vector2 mapPositionMeters, ArtifactKind artifactKind, float displaySeconds)
+    {
+        Initialize();
+
+        GameObject markerPrefab = GetCollectedArtifactMarkerPrefab(artifactKind);
+        if (markerPrefab == null)
+        {
+            return;
+        }
+
+        GameObject markerObject = Instantiate(markerPrefab, markerRoot);
+        markerObject.name = $"{artifactKind}CollectedMarker";
+        markerObject.transform.SetParent(markerRoot, false);
+        AlignMarkerToCamera(markerObject.transform);
+
+        ArtifactMarkerController marker = markerObject.GetComponent<ArtifactMarkerController>();
+        marker = marker != null ? marker : markerObject.AddComponent<ArtifactMarkerController>();
+        marker.SetPosition(MapToLocalPosition(mapPositionMeters));
+        marker.SetVisible(true);
+
+        StartCoroutine(DestroyAfterDelay(markerObject, displaySeconds));
+    }
+
     public Vector3 MapToLocalPosition(Vector2 mapPositionMeters)
     {
         return new Vector3(mapPositionMeters.x, mapPositionMeters.y, 0f);
@@ -514,6 +537,17 @@ public class MapViewController : MonoBehaviour
         }
     }
 
+    private GameObject GetCollectedArtifactMarkerPrefab(ArtifactKind artifactKind)
+    {
+        ArtifactDefinition definition = GetArtifactDefinition(artifactKind);
+        if (definition != null && definition.CollectedMarkerPrefab != null)
+        {
+            return definition.CollectedMarkerPrefab;
+        }
+
+        return GetArtifactMarkerPrefab(artifactKind);
+    }
+
     private ArtifactDefinition GetArtifactDefinition(ArtifactKind artifactKind)
     {
         return artifactCatalog != null ? artifactCatalog.GetDefinition(artifactKind) : null;
@@ -691,6 +725,16 @@ public class MapViewController : MonoBehaviour
         }
 
         return unknownCellColor;
+    }
+
+    private System.Collections.IEnumerator DestroyAfterDelay(GameObject target, float delaySeconds)
+    {
+        yield return new WaitForSeconds(Mathf.Max(0f, delaySeconds));
+
+        if (target != null)
+        {
+            Destroy(target);
+        }
     }
 
     private void UpdateFreeCellGroundTransform()

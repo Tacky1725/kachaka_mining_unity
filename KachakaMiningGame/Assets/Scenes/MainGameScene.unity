@@ -169,6 +169,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   initialTimeSeconds: 30
   excavationDistanceThresholdMeters: 0.3
+  collectedMarkerDisplaySeconds: 0.2
   bombSpinDurationSeconds: 4
   bombSpinDegreesPerSecond: 360
   mapView: {fileID: 300002}
